@@ -2,21 +2,32 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { LogIn } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
 
 export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // TODO: Connect with Supabase Auth
-    setTimeout(() => {
-      setLoading(false);
+    setErrorMsg("");
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setErrorMsg(error.message);
+    } else {
       navigate("/app");
-    }, 1000);
+    }
   };
 
   return (
@@ -35,6 +46,11 @@ export function Login() {
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+          {errorMsg && (
+            <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">
+              {errorMsg}
+            </div>
+          )}
           <div className="space-y-4 rounded-md shadow-sm">
             <div>
               <label htmlFor="email-address" className="sr-only">

@@ -3,14 +3,32 @@ import { Button } from "@/components/ui/button";
 import { LogOut, MapPin, Clock, Coffee, Play } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { supabase } from "@/lib/supabase";
+import { useNavigate } from "react-router-dom";
 
 export function AppDashboard() {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
+    // Buscar o usuário atual logado
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setUserEmail(data.user.email || null);
+      } else {
+        navigate("/login");
+      }
+    });
+
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/login");
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
@@ -23,13 +41,13 @@ export function AppDashboard() {
             </div>
             <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-gray-900">João Silva</p>
-                <p className="text-xs text-gray-500">Desenvolvedor Front-end</p>
+                <p className="text-sm font-medium text-gray-900">{userEmail}</p>
+                <p className="text-xs text-gray-500">Funcionário</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
-                JS
+              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold uppercase">
+                {userEmail ? userEmail.charAt(0) : "U"}
               </div>
-              <Button variant="ghost" size="icon" className="text-gray-500 hover:text-red-600">
+              <Button variant="ghost" size="icon" className="text-gray-500 hover:text-red-600" onClick={handleLogout}>
                 <LogOut className="h-5 w-5" />
               </Button>
             </div>
