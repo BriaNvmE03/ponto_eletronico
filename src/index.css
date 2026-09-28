@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 @theme {
+  --font-sans: 'DM Sans', sans-serif;
+  
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
@@ -35,35 +37,65 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 0 0% 100%; /* Neutral 100 */
+    --foreground: 226 65% 9%; /* Neutral 800 (#080F25) */
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 226 65% 9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 226 65% 9%;
 
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 238 100% 71%; /* Primary Color 1 (#6C72FF) */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 225 57% 92%; /* Neutral 200 (#D9E1FA) */
+    --secondary-foreground: 226 65% 9%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 225 57% 92%; /* Neutral 200 */
+    --muted-foreground: 226 23% 58%; /* Neutral 500 (#7E89AC) */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 225 57% 92%; /* Neutral 200 */
+    --accent-foreground: 226 65% 9%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --border: 225 67% 90%; /* Neutral 300 (#D1DBF9) */
+    --input: 225 67% 90%;
+    --ring: 238 100% 71%;
 
-    --radius: 0.5rem;
+    --radius: 1rem;
+  }
+ 
+  .dark {
+    --background: 226 65% 9%; /* Neutral 800 (#080F25) */
+    --foreground: 0 0% 100%; /* Neutral 100 (#FFFFFF) */
+
+    --card: 225 54% 13%; /* Secondary 1 (#101935) */
+    --card-foreground: 0 0% 100%;
+
+    --popover: 225 54% 13%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 238 100% 71%; /* Primary Color 1 (#6C72FF) */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 224 21% 26%; /* Secondary 2 (#343B4F) */
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 225 40% 22%; /* Neutral 700 (#212C4D) */
+    --muted-foreground: 226 23% 58%; /* Neutral 500 (#7E89AC) */
+
+    --accent: 225 40% 22%; /* Neutral 700 */
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 225 40% 22%; /* Neutral 700 (#212C4D) */
+    --input: 225 40% 22%;
+    --ring: 238 100% 71%;
   }
 }
 
@@ -73,5 +105,6 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'DM Sans', sans-serif;
   }
 }
