@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'DM Sans', sans-serif;
+  
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%; /* Neutral 100 */
+    --foreground: 226 65% 9%; /* Neutral 800 (#080F25) */
+
+    --card: 0 0% 100%;
+    --card-foreground: 226 65% 9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 226 65% 9%;
+
+    --primary: 238 100% 71%; /* Primary Color 1 (#6C72FF) */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 225 57% 92%; /* Neutral 200 (#D9E1FA) */
+    --secondary-foreground: 226 65% 9%;
+
+    --muted: 225 57% 92%; /* Neutral 200 */
+    --muted-foreground: 226 23% 58%; /* Neutral 500 (#7E89AC) */
+
+    --accent: 225 57% 92%; /* Neutral 200 */
+    --accent-foreground: 226 65% 9%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 225 67% 90%; /* Neutral 300 (#D1DBF9) */
+    --input: 225 67% 90%;
+    --ring: 238 100% 71%;
+
+    --radius: 1rem;
+  }
+ 
+  .dark {
+    --background: 226 65% 9%; /* Neutral 800 (#080F25) */
+    --foreground: 0 0% 100%; /* Neutral 100 (#FFFFFF) */
+
+    --card: 225 54% 13%; /* Secondary 1 (#101935) */
+    --card-foreground: 0 0% 100%;
+
+    --popover: 225 54% 13%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 238 100% 71%; /* Primary Color 1 (#6C72FF) */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 224 21% 26%; /* Secondary 2 (#343B4F) */
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 225 40% 22%; /* Neutral 700 (#212C4D) */
+    --muted-foreground: 226 23% 58%; /* Neutral 500 (#7E89AC) */
+
+    --accent: 225 40% 22%; /* Neutral 700 */
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 225 40% 22%; /* Neutral 700 (#212C4D) */
+    --input: 225 40% 22%;
+    --ring: 238 100% 71%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', sans-serif;
+  }
+}
