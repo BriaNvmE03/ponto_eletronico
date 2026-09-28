@@ -18,18 +18,40 @@ export function Login() {
     setLoading(true);
     setErrorMsg("");
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    setLoading(false);
-
-    if (error) {
-      setErrorMsg(error.message);
-    } else {
-      navigate("/app");
+    if (authError) {
+      setErrorMsg(authError.message);
+      setLoading(false);
+      return;
     }
+
+    if (authData.user) {
+      // Busca o perfil do usuário para saber a role
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", authData.user.id)
+        .single();
+
+      if (profile) {
+        if (profile.role === "superadmin") {
+          navigate("/superadmin");
+        } else if (profile.role === "admin") {
+          navigate("/admin");
+        } else {
+          navigate("/app");
+        }
+      } else {
+        // Fallback caso não ache o profile
+        navigate("/app");
+      }
+    }
+    
+    setLoading(false);
   };
 
   return (
