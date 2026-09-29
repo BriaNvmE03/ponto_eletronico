@@ -5,7 +5,6 @@ import { Logo } from "@/components/ui/logo";
 import { LogOut, MapPin, Clock, Coffee, Play, Square } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 
 export function AppDashboard() {
@@ -14,20 +13,21 @@ export function AppDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setUserEmail(data.user.email || null);
-      } else {
-        navigate("/login");
-      }
-    });
+    const userStr = localStorage.getItem("@ponto:user");
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      setUserEmail(user.email);
+    } else {
+      navigate("/login");
+    }
 
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, [navigate]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
+    localStorage.removeItem("@ponto:token");
+    localStorage.removeItem("@ponto:user");
     navigate("/login");
   };
 

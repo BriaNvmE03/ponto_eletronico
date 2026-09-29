@@ -2,56 +2,47 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { LogIn } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/ui/logo";
+import { useMutation } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
 export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setErrorMsg("");
+  // Configuração da Mutation do React Query para a chamada de Login
+  const loginMutation = useMutation({
+    mutationFn: async () => {
+      const response = await api.post('/auth/login', { email, password });
+      return response.data; // { user, token }
+    },
+    onSuccess: (data) => {
+      // 1. Salva o Token e os dados do Usuário de forma segura
+      localStorage.setItem('@ponto:token', data.token);
+      localStorage.setItem('@ponto:user', JSON.stringify(data.user));
 
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (authError) {
-      setErrorMsg(authError.message);
-      setLoading(false);
-      return;
-    }
-
-    if (authData.user) {
-      // Busca o perfil do usuário para saber a role
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", authData.user.id)
-        .single();
-
-      if (profile) {
-        if (profile.role === "superadmin") {
-          navigate("/superadmin");
-        } else if (profile.role === "admin") {
-          navigate("/admin");
-        } else {
-          navigate("/app");
-        }
+      // 2. Redireciona baseado na 'role' devolvida pelo backend Node.js
+      if (data.user.role === "SUPERADMIN") {
+        navigate("/superadmin");
+      } else if (data.user.role === "ADMIN") {
+        navigate("/admin");
       } else {
-        // Fallback caso não ache o profile
         navigate("/app");
       }
+    },
+    onError: (error: any) => {
+      // Captura o erro customizado da API ou exibe erro genérico
+      setErrorMsg(error.response?.data?.error || "Erro ao conectar com o servidor");
     }
-    
-    setLoading(false);
+  });
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg("");
+    loginMutation.mutate();
   };
 
   return (
@@ -116,9 +107,9 @@ export function Login() {
               type="submit"
               variant="primary"
               className="flex w-full justify-center"
-              disabled={loading}
+              disabled={loginMutation.isPending}
             >
-              {loading ? "Entrando..." : "Entrar no Sistema"}
+              {loginMutation.isPending ? "Entrando..." : "Entrar no Sistema"}
             </Button>
           </div>
         </form>

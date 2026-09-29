@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/ui/logo";
-import { Building2, Users, Search, LogOut, CreditCard, DollarSign, Activity, Home, Settings, ChevronLeft, ChevronRight, Bell, Shield, User, MoreVertical, Calendar, Pencil, Trash2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { Building2, Users, Search, LogOut, CreditCard, DollarSign, Activity, Home, Settings, ChevronLeft, ChevronRight, Bell, Shield, User, Calendar, Pencil, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 type Organization = {
   id: string;
   name: string;
@@ -38,24 +39,21 @@ export function SuperAdminDashboard() {
     settings: "Settings",
   }[activeTab];
 
-  useEffect(() => {
-    if (activeTab === "organizations") {
-      fetchOrganizations();
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ['organizations'],
+    queryFn: async () => {
+      const response = await api.get('/organizations');
+      return response.data;
     }
-  }, [activeTab]);
+  });
 
-  const fetchOrganizations = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("organizations")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
+  useEffect(() => {
+    if (data) {
       setOrganizations(data);
     }
-    setLoading(false);
-  };
+    setLoading(isLoading);
+  }, [data, isLoading]);
 
   const openCreateModal = () => {
     setEditingOrg(null);
@@ -76,67 +74,78 @@ export function SuperAdminDashboard() {
     setIsEditModalOpen(true);
   };
 
-  const openDeleteModal = async (id: string) => {
-    if (window.confirm("Tem certeza que deseja excluir este tenant? Esta ação é irreversível.")) {
-      const { error } = await supabase.from("organizations").delete().eq("id", id);
-      if (!error) {
-         fetchOrganizations();
-      } else {
-         alert("Erro ao excluir: " + error.message);
-      }
-    }
+  const handleDeleteOrg = (org: Organization) => {
+    setTenantToDelete(org);
+    setDeleteConfirmationText("");
+    setDeleteModalOpen(true);
   };
 
-  const handleEditOrg = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingOrg) return;
-    
-    const { error } = await supabase
-      .from("organizations")
-      .update({ name: newOrgName, status: orgStatus, plan: orgPlan })
-      .eq("id", editingOrg.id);
-      
-    if (!error) {
-      fetchOrganizations();
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/organizations/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      setDeleteModalOpen(false);
+      setTenantToDelete(null);
+    },
+    onError: (err: any) => alert("Erro ao excluir: " + err.message)
+  });
+
+  const confirmDeleteOrg = () => {
+    if (tenantToDelete) deleteMutation.mutate(tenantToDelete.id);
+  };
+
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingOrg) return;
+      await api.put(`/organizations/${editingOrg.id}`, { name: newOrgName, status: orgStatus, plan: orgPlan });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
       setIsEditModalOpen(false);
-    } else {
-      alert("Erro ao atualizar tenant: " + error.message);
-    }
+    },
+    onError: (err: any) => alert("Erro ao atualizar tenant: " + err.message)
+  });
+
+  const handleEditOrg = (e: React.FormEvent) => {
+    e.preventDefault();
+    editMutation.mutate();
   };
 
-  const handleCreateOrg = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!newOrgName.trim() || !adminEmail.trim() || !adminPassword.trim() || !adminName.trim()) {
-      alert("Preencha todos os campos obrigatórios.");
-      return;
-    }
-
-    // Chamamos a função RPC no banco para criar tudo numa transação segura
-    const { data, error } = await supabase.rpc('create_tenant_with_admin', {
-      org_name: newOrgName,
-      admin_email: adminEmail,
-      admin_password: adminPassword,
-      admin_full_name: adminName
-    });
-
-    if (!error && data) {
-      // Sucesso! Vamos recarregar as empresas
-      fetchOrganizations();
-      
-      // Limpar formulário
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        orgName: newOrgName,
+        adminEmail: adminEmail,
+        adminPassword: adminPassword,
+        adminFullName: adminName
+      };
+      await api.post('/organizations/tenant', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
       setNewOrgName("");
       setAdminName("");
       setAdminEmail("");
       setAdminPassword("");
       setIsCreating(false);
-    } else {
-      alert("Erro ao criar empresa e administrador: " + error?.message);
+    },
+    onError: (err: any) => alert("Erro ao criar empresa: " + (err.response?.data?.error || err.message))
+  });
+
+  const handleCreateOrg = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOrgName.trim() || !adminEmail.trim() || !adminPassword.trim() || !adminName.trim()) {
+      alert("Preencha todos os campos obrigatórios.");
+      return;
     }
+    createMutation.mutate();
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
+    localStorage.removeItem('@ponto:token');
+    localStorage.removeItem('@ponto:user');
     navigate("/login");
   };
 
@@ -172,7 +181,7 @@ export function SuperAdminDashboard() {
         <nav className="flex-1 py-2 space-y-1 overflow-y-auto font-medium text-sm">
           <Button
             variant="ghost"
-            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "overview" ? "text-primary hover:text-primary hover:bg-transparent" : "text-muted-foreground hover:text-foreground"} ${!isSidebarOpen && 'justify-center px-0'}`}
+            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "overview" ? "text-primary font-bold dark:text-blue-400 hover:text-primary dark:hover:text-blue-300 hover:bg-transparent" : "text-muted-foreground hover:text-foreground hover:bg-transparent"} ${!isSidebarOpen && 'justify-center px-0'}`}
             onClick={() => setActiveTab("overview")}
             title={!isSidebarOpen ? "Dashboard" : undefined}
           >
@@ -184,7 +193,7 @@ export function SuperAdminDashboard() {
           </Button>
           <Button
             variant="ghost"
-            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "users" ? "text-primary hover:text-primary hover:bg-transparent" : "text-muted-foreground hover:text-foreground"} ${!isSidebarOpen && 'justify-center px-0'}`}
+            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "users" ? "text-primary font-bold dark:text-blue-400 hover:text-primary dark:hover:text-blue-300 hover:bg-transparent" : "text-muted-foreground hover:text-foreground hover:bg-transparent"} ${!isSidebarOpen && 'justify-center px-0'}`}
             onClick={() => setActiveTab("users")}
             title={!isSidebarOpen ? "Users" : undefined}
           >
@@ -196,7 +205,7 @@ export function SuperAdminDashboard() {
           </Button>
           <Button
             variant="ghost"
-            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "organizations" ? "text-primary hover:text-primary hover:bg-transparent" : "text-muted-foreground hover:text-foreground"} ${!isSidebarOpen && 'justify-center px-0'}`}
+            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "organizations" ? "text-primary font-bold dark:text-blue-400 hover:text-primary dark:hover:text-blue-300 hover:bg-transparent" : "text-muted-foreground hover:text-foreground hover:bg-transparent"} ${!isSidebarOpen && 'justify-center px-0'}`}
             onClick={() => setActiveTab("organizations")}
             title={!isSidebarOpen ? "Tenants" : undefined}
           >
@@ -208,7 +217,7 @@ export function SuperAdminDashboard() {
           </Button>
           <Button
             variant="ghost"
-            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "plans" ? "text-primary hover:text-primary hover:bg-transparent" : "text-muted-foreground hover:text-foreground"} ${!isSidebarOpen && 'justify-center px-0'}`}
+            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "plans" ? "text-primary font-bold dark:text-blue-400 hover:text-primary dark:hover:text-blue-300 hover:bg-transparent" : "text-muted-foreground hover:text-foreground hover:bg-transparent"} ${!isSidebarOpen && 'justify-center px-0'}`}
             onClick={() => setActiveTab("plans")}
             title={!isSidebarOpen ? "Planos" : undefined}
           >
@@ -220,7 +229,7 @@ export function SuperAdminDashboard() {
           </Button>
           <Button
             variant="ghost"
-            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "settings" ? "text-primary hover:text-primary hover:bg-transparent" : "text-muted-foreground hover:text-foreground"} ${!isSidebarOpen && 'justify-center px-0'}`}
+            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "settings" ? "text-primary font-bold dark:text-blue-400 hover:text-primary dark:hover:text-blue-300 hover:bg-transparent" : "text-muted-foreground hover:text-foreground hover:bg-transparent"} ${!isSidebarOpen && 'justify-center px-0'}`}
             onClick={() => setActiveTab("settings")}
             title={!isSidebarOpen ? "Settings" : undefined}
           >
@@ -425,7 +434,7 @@ export function SuperAdminDashboard() {
               <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-blue-500" onClick={() => openEditModal(org)}>
                 <Pencil className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-red-500" onClick={() => handleDeleteOrg(org.id)}>
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-red-500" onClick={() => handleDeleteOrg(org)}>
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>

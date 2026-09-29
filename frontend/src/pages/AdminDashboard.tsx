@@ -1,13 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { LogOut, Users, Settings, Activity } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
 
 export function AdminDashboard() {
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
+    localStorage.removeItem('@ponto:token');
+    localStorage.removeItem('@ponto:user');
     navigate("/login");
   };
 
