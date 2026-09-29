@@ -2,13 +2,13 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/ui/logo";
-import { Building2, Users, Search, LogOut, CreditCard, DollarSign, Activity, Home, Settings, ChevronLeft, ChevronRight, Bell, Shield, User } from "lucide-react";
+import { Building2, Users, Search, LogOut, CreditCard, DollarSign, Activity, Home, Settings, ChevronLeft, ChevronRight, Bell, Shield, User, MoreVertical } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 type Organization = {
   id: string;
   name: string;
-  created_at: string;
+  created_at: string; status?: 'Ativo' | 'Desativado' | 'Pendente' | 'Cancelado'; plan?: string; email?: string;
 };
 
 export function SuperAdminDashboard() {
@@ -52,20 +52,31 @@ export function SuperAdminDashboard() {
 
   const handleCreateOrg = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newOrgName.trim()) return;
+    if (!newOrgName.trim() || !adminEmail.trim() || !adminPassword.trim() || !adminName.trim()) {
+      alert("Preencha todos os campos obrigatórios.");
+      return;
+    }
 
-    const { data, error } = await supabase
-      .from("organizations")
-      .insert([{ name: newOrgName }])
-      .select()
-      .single();
+    // Chamamos a função RPC no banco para criar tudo numa transação segura
+    const { data, error } = await supabase.rpc('create_tenant_with_admin', {
+      org_name: newOrgName,
+      admin_email: adminEmail,
+      admin_password: adminPassword,
+      admin_full_name: adminName
+    });
 
     if (!error && data) {
-      setOrganizations([data, ...organizations]);
+      // Sucesso! Vamos recarregar as empresas
+      fetchOrganizations();
+      
+      // Limpar formulário
       setNewOrgName("");
+      setAdminName("");
+      setAdminEmail("");
+      setAdminPassword("");
       setIsCreating(false);
     } else {
-      alert("Erro ao criar empresa: " + error?.message);
+      alert("Erro ao criar empresa e administrador: " + error?.message);
     }
   };
 
@@ -292,7 +303,7 @@ export function SuperAdminDashboard() {
                     <input
                       type="text"
                       placeholder="Buscar por nome..."
-                      className="w-full pl-11 pr-4 h-12 bg-background rounded-xl border-transparent text-sm focus:bg-card focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+                      className="w-full pl-11 pr-4 h-12 bg-secondary/30 rounded-xl border border-border text-sm focus:bg-background focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-foreground placeholder:text-muted-foreground"
                     />
                   </div>
                 </div>
@@ -301,48 +312,70 @@ export function SuperAdminDashboard() {
                   <div className="p-16 text-center text-muted-foreground">Carregando...</div>
                 ) : organizations.length === 0 ? (
                   <div className="p-16 text-center flex flex-col items-center">
-                    <div className="h-20 w-20 bg-blue-50 rounded-full flex items-center justify-center mb-4">
-                      <Building2 className="h-10 w-10 text-blue-500" />
+                    <div className="h-20 w-20 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                      <Building2 className="h-10 w-10 text-primary" />
                     </div>
                     <h3 className="text-xl font-bold text-foreground">Nenhum Tenant Cadastrado</h3>
                     <p className="text-muted-foreground max-w-sm mt-2 mb-6">Comece adicionando seu primeiro cliente ao sistema.</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-slate-600">
-                      <thead className="bg-[#F8FAFC] text-muted-foreground border-b border-border font-medium">
-                        <tr>
-                          <th className="px-8 py-5">Organização</th>
-                          <th className="px-8 py-5">Data de Cadastro</th>
-                          <th className="px-8 py-5 text-right">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50">
-                        {organizations.map((org) => (
-                          <tr key={org.id} className="hover:bg-accent/50 transition-colors group">
-                            <td className="px-8 py-5">
-                              <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
-                                  {org.name.charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                  <span className="font-bold text-foreground block text-base">{org.name}</span>
-                                  <span className="text-xs text-muted-foreground">ID: {org.id.split('-')[0]}...</span>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-8 py-5 text-muted-foreground font-medium">
-                              {new Date(org.created_at).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short', year: 'numeric' })}
-                            </td>
-                            <td className="px-8 py-5 text-right">
-                              <Button variant="ghost" className="text-primary hover:bg-primary/10 hover:text-primary font-semibold rounded-lg">
-                                Ver Gestores
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    ﻿<table className="w-full text-left text-sm text-foreground">
+  <thead className="bg-secondary/50 text-muted-foreground border-b border-border font-medium">
+    <tr>
+      <th className="px-8 py-5">Cliente</th>
+      <th className="px-8 py-5">Data de Cadastro</th>
+      <th className="px-8 py-5">Status</th>
+      <th className="px-8 py-5">Plano</th>
+      <th className="px-8 py-5 text-right"></th>
+    </tr>
+  </thead>
+  <tbody className="divide-y divide-border">
+    {organizations.map((org) => {
+      const mockEmail = org.email || `contato@${org.name.toLowerCase().replace(/\s+/g, '')}.com`;
+      const mockStatus = org.status || 'Ativo';
+      const mockPlan = org.plan || 'Plano Básico';
+      
+      return (
+        <tr key={org.id} className="hover:bg-accent/50 transition-colors group">
+          <td className="px-8 py-5">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+                {org.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <span className="font-bold text-foreground block text-base">{org.name}</span>
+                <span className="text-xs text-muted-foreground">{mockEmail}</span>
+              </div>
+            </div>
+          </td>
+          <td className="px-8 py-5 text-muted-foreground font-medium">
+            {new Date(org.created_at).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short', year: 'numeric' })}
+          </td>
+          <td className="px-8 py-5">
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+              mockStatus === 'Ativo' ? 'bg-emerald-500/10 text-emerald-500' :
+              mockStatus === 'Desativado' ? 'bg-red-500/10 text-red-500' :
+              mockStatus === 'Cancelado' ? 'bg-slate-500/10 text-slate-500' :
+              'bg-orange-500/10 text-orange-500'
+            }`}>
+              {mockStatus}
+            </span>
+          </td>
+          <td className="px-8 py-5 text-muted-foreground font-medium">
+            {mockPlan}
+          </td>
+          <td className="px-8 py-5 text-right">
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+              <MoreVertical className="h-5 w-5" />
+            </Button>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
                   </div>
                 )}
               </div>
@@ -382,7 +415,7 @@ export function SuperAdminDashboard() {
           <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center px-6 py-4 border-b border-border">
               <h3 className="text-xl font-bold text-foreground">Criar Novo Tenant</h3>
-              <Button variant="ghost" size="icon" onClick={() => setIsCreating(false)} className="text-muted-foreground hover:text-slate-600">
+              <Button variant="ghost" size="icon" onClick={() => setIsCreating(false)} className="text-muted-foreground hover:text-foreground">
                 <span className="text-2xl leading-none">&times;</span>
               </Button>
             </div>
@@ -469,7 +502,7 @@ export function SuperAdminDashboard() {
               </div>
               
               <div className="mt-8 pt-4 border-t border-border flex justify-end gap-3">
-                <Button type="button" variant="outline" size="md" onClick={() => setIsCreating(false)}>
+                <Button type="button" variant="outline" size="md" className="hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/50 transition-colors" onClick={() => setIsCreating(false)}>
                   Cancelar
                 </Button>
                 <Button type="submit" variant="primary" size="md">
