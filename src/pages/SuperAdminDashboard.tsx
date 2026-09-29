@@ -16,6 +16,7 @@ export function SuperAdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
   const [orgStatus, setOrgStatus] = useState("Ativo");
   const [orgPlan, setOrgPlan] = useState("Plano Básico");
@@ -23,6 +24,9 @@ export function SuperAdminDashboard() {
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [tenantToDelete, setTenantToDelete] = useState<Organization | null>(null);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -69,10 +73,10 @@ export function SuperAdminDashboard() {
     setNewOrgName(org.name);
     setOrgStatus(org.status || 'Ativo');
     setOrgPlan(org.plan || 'Plano Básico');
-    setIsCreating(true);
+    setIsEditModalOpen(true);
   };
 
-  const handleDeleteOrg = async (id: string) => {
+  const openDeleteModal = async (id: string) => {
     if (window.confirm("Tem certeza que deseja excluir este tenant? Esta ação é irreversível.")) {
       const { error } = await supabase.from("organizations").delete().eq("id", id);
       if (!error) {
@@ -83,23 +87,25 @@ export function SuperAdminDashboard() {
     }
   };
 
+  const handleEditOrg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingOrg) return;
+    
+    const { error } = await supabase
+      .from("organizations")
+      .update({ name: newOrgName, status: orgStatus, plan: orgPlan })
+      .eq("id", editingOrg.id);
+      
+    if (!error) {
+      fetchOrganizations();
+      setIsEditModalOpen(false);
+    } else {
+      alert("Erro ao atualizar tenant: " + error.message);
+    }
+  };
+
   const handleCreateOrg = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (editingOrg) {
-      const { error } = await supabase
-        .from("organizations")
-        .update({ name: newOrgName, status: orgStatus, plan: orgPlan })
-        .eq("id", editingOrg.id);
-        
-      if (!error) {
-        fetchOrganizations();
-        setIsCreating(false);
-      } else {
-        alert("Erro ao atualizar tenant: " + error.message);
-      }
-      return;
-    }
 
     if (!newOrgName.trim() || !adminEmail.trim() || !adminPassword.trim() || !adminName.trim()) {
       alert("Preencha todos os campos obrigatórios.");
@@ -463,12 +469,68 @@ export function SuperAdminDashboard() {
         </div>
       </main>
 
-      {/* Modal Criar Tenant */}
+      {/* Modal Confirmar Exclusão */}
+      {deleteModalOpen && tenantToDelete && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in duration-200">
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 shrink-0">
+                  <Trash2 className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-foreground">Excluir Tenant</h3>
+                  <p className="text-sm text-muted-foreground">Esta ação é irreversível.</p>
+                </div>
+              </div>
+              
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  Você está prestes a excluir o tenant <strong className="font-bold">{tenantToDelete.name}</strong>. Todos os dados associados a esta organização serão permanentemente apagados.
+                </p>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Para confirmar, digite <span className="font-mono bg-secondary px-1 py-0.5 rounded text-foreground font-bold select-all">CONFIRMAR</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={deleteConfirmationText}
+                  onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                  placeholder="CONFIRMAR"
+                  className="w-full px-4 py-2.5 bg-card rounded-lg border border-slate-300 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all text-sm font-mono"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <Button type="button" variant="outline" size="md" onClick={() => setDeleteModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="primary" 
+                  size="md"
+                  className="bg-red-500 hover:bg-red-600 text-white border-red-600"
+                  disabled={deleteConfirmationText !== "CONFIRMAR"}
+                  onClick={confirmDeleteOrg}
+                >
+                  Excluir Permanentemente
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+            {/* Modal Criar Tenant */}
       {isCreating && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center px-6 py-4 border-b border-border">
-              <h3 className="text-xl font-bold text-foreground">{editingOrg ? "Editar Tenant" : "Criar Novo Tenant"}</h3>
+              <h3 className="text-xl font-bold text-foreground">Criar Novo Tenant</h3>
               <Button variant="ghost" size="icon" onClick={() => setIsCreating(false)} className="text-muted-foreground hover:text-foreground">
                 <span className="text-2xl leading-none">&times;</span>
               </Button>
@@ -498,16 +560,18 @@ export function SuperAdminDashboard() {
                       Plano de Assinatura
                     </label>
                     <select
-                      disabled
-                      className="w-full px-4 py-2.5 bg-accent text-muted-foreground rounded-lg border border-slate-300 outline-none cursor-not-allowed text-sm appearance-none"
+                      value={orgPlan}
+                      onChange={(e) => setOrgPlan(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-card rounded-lg border border-slate-300 focus:border-[#2D60FF] focus:ring-1 focus:ring-[#2D60FF] outline-none transition-all text-sm appearance-none"
                     >
-                      <option>Plano Padrão (Fixo temporariamente)</option>
+                      <option value="Plano Básico">Plano Básico</option>
+                      <option value="Plano Pro">Plano Pro</option>
+                      <option value="Plano Enterprise">Plano Enterprise</option>
                     </select>
                   </div>
                 </div>
 
                 <hr className="border-border" />
-
                 <div>
                   <h4 className="text-lg font-bold text-foreground mb-4">Administrador do Tenant</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -561,6 +625,79 @@ export function SuperAdminDashboard() {
                 </Button>
                 <Button type="submit" variant="primary" size="md">
                   Criar Tenant
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Tenant */}
+      {isEditModalOpen && editingOrg && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-lg animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-border">
+              <h3 className="text-xl font-bold text-foreground">Editar Tenant</h3>
+              <Button variant="ghost" size="icon" onClick={() => setIsEditModalOpen(false)} className="text-muted-foreground hover:text-foreground">
+                <span className="text-2xl leading-none">&times;</span>
+              </Button>
+            </div>
+            
+            <form onSubmit={handleEditOrg} className="p-6">
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Nome do Tenant *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={newOrgName}
+                    onChange={(e) => setNewOrgName(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-card rounded-lg border border-slate-300 focus:border-[#2D60FF] focus:ring-1 focus:ring-[#2D60FF] outline-none transition-all text-sm"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Plano de Assinatura
+                    </label>
+                    <select
+                      value={orgPlan}
+                      onChange={(e) => setOrgPlan(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-card rounded-lg border border-slate-300 focus:border-[#2D60FF] focus:ring-1 focus:ring-[#2D60FF] outline-none transition-all text-sm appearance-none"
+                    >
+                      <option value="Plano Básico">Plano Básico</option>
+                      <option value="Plano Pro">Plano Pro</option>
+                      <option value="Plano Enterprise">Plano Enterprise</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Status
+                    </label>
+                    <select
+                      value={orgStatus}
+                      onChange={(e) => setOrgStatus(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-card rounded-lg border border-slate-300 focus:border-[#2D60FF] focus:ring-1 focus:ring-[#2D60FF] outline-none transition-all text-sm appearance-none"
+                    >
+                      <option value="Ativo">Ativo</option>
+                      <option value="Pendente">Pendente</option>
+                      <option value="Desativado">Desativado</option>
+                      <option value="Cancelado">Cancelado</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-8 pt-4 border-t border-border flex justify-end gap-3">
+                <Button type="button" variant="outline" size="md" className="hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/50 transition-colors" onClick={() => setIsEditModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" variant="primary" size="md">
+                  Salvar Alterações
                 </Button>
               </div>
             </form>
