@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/ui/logo";
-import { Building2, Users, Search, LogOut, CreditCard, DollarSign, Activity, Home, Settings, ChevronLeft, ChevronRight, Bell, Shield, User, MoreVertical } from "lucide-react";
+import { Building2, Users, Search, LogOut, CreditCard, DollarSign, Activity, Home, Settings, ChevronLeft, ChevronRight, Bell, Shield, User, MoreVertical, Calendar } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 type Organization = {
@@ -320,13 +320,13 @@ export function SuperAdminDashboard() {
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    ﻿<table className="w-full text-left text-sm text-foreground">
+                    <table className="w-full text-left text-sm text-foreground">
   <thead className="bg-secondary/50 text-muted-foreground border-b border-border font-medium">
     <tr>
-      <th className="px-8 py-5">Cliente</th>
-      <th className="px-8 py-5">Data de Cadastro</th>
-      <th className="px-8 py-5">Status</th>
-      <th className="px-8 py-5">Plano</th>
+      <th className="px-8 py-5"><div className="flex items-center gap-2"><Building2 className="h-4 w-4"/>Cliente</div></th>
+      <th className="px-8 py-5"><div className="flex items-center gap-2"><Calendar className="h-4 w-4"/>Data de Cadastro</div></th>
+      <th className="px-8 py-5"><div className="flex items-center gap-2"><Activity className="h-4 w-4"/>Status</div></th>
+      <th className="px-8 py-5"><div className="flex items-center gap-2"><CreditCard className="h-4 w-4"/>Plano</div></th>
       <th className="px-8 py-5 text-right"></th>
     </tr>
   </thead>
