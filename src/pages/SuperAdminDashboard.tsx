@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/ui/logo";
-import { Building2, Users, Search, LogOut, CreditCard, DollarSign, Activity, Home, Settings, ChevronLeft, ChevronRight, Bell, Shield, User, MoreVertical, Calendar } from "lucide-react";
+import { Building2, Users, Search, LogOut, CreditCard, DollarSign, Activity, Home, Settings, ChevronLeft, ChevronRight, Bell, Shield, User, MoreVertical, Calendar, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 type Organization = {
@@ -16,6 +16,9 @@ export function SuperAdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
+  const [orgStatus, setOrgStatus] = useState("Ativo");
+  const [orgPlan, setOrgPlan] = useState("Plano Básico");
   const [newOrgName, setNewOrgName] = useState("");
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
@@ -50,8 +53,54 @@ export function SuperAdminDashboard() {
     setLoading(false);
   };
 
+  const openCreateModal = () => {
+    setEditingOrg(null);
+    setNewOrgName("");
+    setOrgStatus("Ativo");
+    setOrgPlan("Plano Básico");
+    setAdminName("");
+    setAdminEmail("");
+    setAdminPassword("");
+    setIsCreating(true);
+  };
+
+  const openEditModal = (org: Organization) => {
+    setEditingOrg(org);
+    setNewOrgName(org.name);
+    setOrgStatus(org.status || 'Ativo');
+    setOrgPlan(org.plan || 'Plano Básico');
+    setIsCreating(true);
+  };
+
+  const handleDeleteOrg = async (id: string) => {
+    if (window.confirm("Tem certeza que deseja excluir este tenant? Esta ação é irreversível.")) {
+      const { error } = await supabase.from("organizations").delete().eq("id", id);
+      if (!error) {
+         fetchOrganizations();
+      } else {
+         alert("Erro ao excluir: " + error.message);
+      }
+    }
+  };
+
   const handleCreateOrg = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (editingOrg) {
+      const { error } = await supabase
+        .from("organizations")
+        .update({ name: newOrgName, status: orgStatus, plan: orgPlan })
+        .eq("id", editingOrg.id);
+        
+      if (!error) {
+        fetchOrganizations();
+        setIsCreating(false);
+      } else {
+        alert("Erro ao atualizar tenant: " + error.message);
+      }
+      return;
+    }
+
     if (!newOrgName.trim() || !adminEmail.trim() || !adminPassword.trim() || !adminName.trim()) {
       alert("Preencha todos os campos obrigatórios.");
       return;
@@ -287,7 +336,7 @@ export function SuperAdminDashboard() {
                   <p className="text-muted-foreground mt-1">Gerencie as organizações que utilizam o sistema.</p>
                 </div>
                 <Button 
-                  onClick={() => setIsCreating(true)} 
+                  onClick={openCreateModal} 
                   variant="primary"
                   size="md"
                 >
@@ -366,9 +415,14 @@ export function SuperAdminDashboard() {
             {mockPlan}
           </td>
           <td className="px-8 py-5 text-right">
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-              <MoreVertical className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center justify-end gap-1">
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-blue-500" onClick={() => openEditModal(org)}>
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-red-500" onClick={() => handleDeleteOrg(org.id)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </td>
         </tr>
       );
@@ -414,7 +468,7 @@ export function SuperAdminDashboard() {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center px-6 py-4 border-b border-border">
-              <h3 className="text-xl font-bold text-foreground">Criar Novo Tenant</h3>
+              <h3 className="text-xl font-bold text-foreground">{editingOrg ? "Editar Tenant" : "Criar Novo Tenant"}</h3>
               <Button variant="ghost" size="icon" onClick={() => setIsCreating(false)} className="text-muted-foreground hover:text-foreground">
                 <span className="text-2xl leading-none">&times;</span>
               </Button>
