@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/ui/logo";
-import { Building2, Users, Search, LogOut, CreditCard, DollarSign, Activity, Home, Settings, ChevronLeft, ChevronRight, Bell, Shield, User } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { Building2, Users, Search, LogOut, CreditCard, DollarSign, Activity, Home, Settings, ChevronLeft, ChevronRight, Bell, Shield, User, Calendar, Pencil, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 type Organization = {
   id: string;
   name: string;
-  created_at: string;
+  created_at: string; status?: 'Ativo' | 'Desativado' | 'Pendente' | 'Cancelado'; plan?: string; email?: string;
 };
 
 export function SuperAdminDashboard() {
@@ -16,10 +17,17 @@ export function SuperAdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
+  const [orgStatus, setOrgStatus] = useState("Ativo");
+  const [orgPlan, setOrgPlan] = useState("Plano Básico");
   const [newOrgName, setNewOrgName] = useState("");
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [tenantToDelete, setTenantToDelete] = useState<Organization | null>(null);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -31,46 +39,113 @@ export function SuperAdminDashboard() {
     settings: "Settings",
   }[activeTab];
 
-  useEffect(() => {
-    if (activeTab === "organizations") {
-      fetchOrganizations();
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ['organizations'],
+    queryFn: async () => {
+      const response = await api.get('/organizations');
+      return response.data;
     }
-  }, [activeTab]);
+  });
 
-  const fetchOrganizations = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("organizations")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
+  useEffect(() => {
+    if (data) {
       setOrganizations(data);
     }
-    setLoading(false);
+    setLoading(isLoading);
+  }, [data, isLoading]);
+
+  const openCreateModal = () => {
+    setEditingOrg(null);
+    setNewOrgName("");
+    setOrgStatus("Ativo");
+    setOrgPlan("Plano Básico");
+    setAdminName("");
+    setAdminEmail("");
+    setAdminPassword("");
+    setIsCreating(true);
   };
 
-  const handleCreateOrg = async (e: React.FormEvent) => {
+  const openEditModal = (org: Organization) => {
+    setEditingOrg(org);
+    setNewOrgName(org.name);
+    setOrgStatus(org.status || 'Ativo');
+    setOrgPlan(org.plan || 'Plano Básico');
+    setIsEditModalOpen(true);
+  };
+
+  const handleDeleteOrg = (org: Organization) => {
+    setTenantToDelete(org);
+    setDeleteConfirmationText("");
+    setDeleteModalOpen(true);
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/organizations/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      setDeleteModalOpen(false);
+      setTenantToDelete(null);
+    },
+    onError: (err: any) => alert("Erro ao excluir: " + err.message)
+  });
+
+  const confirmDeleteOrg = () => {
+    if (tenantToDelete) deleteMutation.mutate(tenantToDelete.id);
+  };
+
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingOrg) return;
+      await api.put(`/organizations/${editingOrg.id}`, { name: newOrgName, status: orgStatus, plan: orgPlan });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      setIsEditModalOpen(false);
+    },
+    onError: (err: any) => alert("Erro ao atualizar tenant: " + err.message)
+  });
+
+  const handleEditOrg = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newOrgName.trim()) return;
-
-    const { data, error } = await supabase
-      .from("organizations")
-      .insert([{ name: newOrgName }])
-      .select()
-      .single();
-
-    if (!error && data) {
-      setOrganizations([data, ...organizations]);
-      setNewOrgName("");
-      setIsCreating(false);
-    } else {
-      alert("Erro ao criar empresa: " + error?.message);
-    }
+    editMutation.mutate();
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        orgName: newOrgName,
+        adminEmail: adminEmail,
+        adminPassword: adminPassword,
+        adminFullName: adminName
+      };
+      await api.post('/organizations/tenant', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      setNewOrgName("");
+      setAdminName("");
+      setAdminEmail("");
+      setAdminPassword("");
+      setIsCreating(false);
+    },
+    onError: (err: any) => alert("Erro ao criar empresa: " + (err.response?.data?.error || err.message))
+  });
+
+  const handleCreateOrg = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOrgName.trim() || !adminEmail.trim() || !adminPassword.trim() || !adminName.trim()) {
+      alert("Preencha todos os campos obrigatórios.");
+      return;
+    }
+    createMutation.mutate();
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('@ponto:token');
+    localStorage.removeItem('@ponto:user');
     navigate("/login");
   };
 
@@ -106,7 +181,7 @@ export function SuperAdminDashboard() {
         <nav className="flex-1 py-2 space-y-1 overflow-y-auto font-medium text-sm">
           <Button
             variant="ghost"
-            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "overview" ? "text-primary hover:text-primary hover:bg-transparent" : "text-muted-foreground hover:text-foreground"} ${!isSidebarOpen && 'justify-center px-0'}`}
+            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "overview" ? "text-primary font-bold dark:text-blue-400 hover:text-primary dark:hover:text-blue-300 hover:bg-transparent" : "text-muted-foreground hover:text-foreground hover:bg-transparent"} ${!isSidebarOpen && 'justify-center px-0'}`}
             onClick={() => setActiveTab("overview")}
             title={!isSidebarOpen ? "Dashboard" : undefined}
           >
@@ -118,7 +193,7 @@ export function SuperAdminDashboard() {
           </Button>
           <Button
             variant="ghost"
-            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "users" ? "text-primary hover:text-primary hover:bg-transparent" : "text-muted-foreground hover:text-foreground"} ${!isSidebarOpen && 'justify-center px-0'}`}
+            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "users" ? "text-primary font-bold dark:text-blue-400 hover:text-primary dark:hover:text-blue-300 hover:bg-transparent" : "text-muted-foreground hover:text-foreground hover:bg-transparent"} ${!isSidebarOpen && 'justify-center px-0'}`}
             onClick={() => setActiveTab("users")}
             title={!isSidebarOpen ? "Users" : undefined}
           >
@@ -130,7 +205,7 @@ export function SuperAdminDashboard() {
           </Button>
           <Button
             variant="ghost"
-            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "organizations" ? "text-primary hover:text-primary hover:bg-transparent" : "text-muted-foreground hover:text-foreground"} ${!isSidebarOpen && 'justify-center px-0'}`}
+            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "organizations" ? "text-primary font-bold dark:text-blue-400 hover:text-primary dark:hover:text-blue-300 hover:bg-transparent" : "text-muted-foreground hover:text-foreground hover:bg-transparent"} ${!isSidebarOpen && 'justify-center px-0'}`}
             onClick={() => setActiveTab("organizations")}
             title={!isSidebarOpen ? "Tenants" : undefined}
           >
@@ -142,7 +217,7 @@ export function SuperAdminDashboard() {
           </Button>
           <Button
             variant="ghost"
-            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "plans" ? "text-primary hover:text-primary hover:bg-transparent" : "text-muted-foreground hover:text-foreground"} ${!isSidebarOpen && 'justify-center px-0'}`}
+            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "plans" ? "text-primary font-bold dark:text-blue-400 hover:text-primary dark:hover:text-blue-300 hover:bg-transparent" : "text-muted-foreground hover:text-foreground hover:bg-transparent"} ${!isSidebarOpen && 'justify-center px-0'}`}
             onClick={() => setActiveTab("plans")}
             title={!isSidebarOpen ? "Planos" : undefined}
           >
@@ -154,7 +229,7 @@ export function SuperAdminDashboard() {
           </Button>
           <Button
             variant="ghost"
-            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "settings" ? "text-primary hover:text-primary hover:bg-transparent" : "text-muted-foreground hover:text-foreground"} ${!isSidebarOpen && 'justify-center px-0'}`}
+            className={`w-full justify-start gap-3 h-12 rounded-none px-6 transition-all relative ${activeTab === "settings" ? "text-primary font-bold dark:text-blue-400 hover:text-primary dark:hover:text-blue-300 hover:bg-transparent" : "text-muted-foreground hover:text-foreground hover:bg-transparent"} ${!isSidebarOpen && 'justify-center px-0'}`}
             onClick={() => setActiveTab("settings")}
             title={!isSidebarOpen ? "Settings" : undefined}
           >
@@ -276,7 +351,7 @@ export function SuperAdminDashboard() {
                   <p className="text-muted-foreground mt-1">Gerencie as organizações que utilizam o sistema.</p>
                 </div>
                 <Button 
-                  onClick={() => setIsCreating(true)} 
+                  onClick={openCreateModal} 
                   variant="primary"
                   size="md"
                 >
@@ -292,7 +367,7 @@ export function SuperAdminDashboard() {
                     <input
                       type="text"
                       placeholder="Buscar por nome..."
-                      className="w-full pl-11 pr-4 h-12 bg-background rounded-xl border-transparent text-sm focus:bg-card focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+                      className="w-full pl-11 pr-4 h-12 bg-secondary/30 rounded-xl border border-border text-sm focus:bg-background focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-foreground placeholder:text-muted-foreground"
                     />
                   </div>
                 </div>
@@ -301,48 +376,75 @@ export function SuperAdminDashboard() {
                   <div className="p-16 text-center text-muted-foreground">Carregando...</div>
                 ) : organizations.length === 0 ? (
                   <div className="p-16 text-center flex flex-col items-center">
-                    <div className="h-20 w-20 bg-blue-50 rounded-full flex items-center justify-center mb-4">
-                      <Building2 className="h-10 w-10 text-blue-500" />
+                    <div className="h-20 w-20 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                      <Building2 className="h-10 w-10 text-primary" />
                     </div>
                     <h3 className="text-xl font-bold text-foreground">Nenhum Tenant Cadastrado</h3>
                     <p className="text-muted-foreground max-w-sm mt-2 mb-6">Comece adicionando seu primeiro cliente ao sistema.</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-slate-600">
-                      <thead className="bg-[#F8FAFC] text-muted-foreground border-b border-border font-medium">
-                        <tr>
-                          <th className="px-8 py-5">Organização</th>
-                          <th className="px-8 py-5">Data de Cadastro</th>
-                          <th className="px-8 py-5 text-right">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50">
-                        {organizations.map((org) => (
-                          <tr key={org.id} className="hover:bg-accent/50 transition-colors group">
-                            <td className="px-8 py-5">
-                              <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
-                                  {org.name.charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                  <span className="font-bold text-foreground block text-base">{org.name}</span>
-                                  <span className="text-xs text-muted-foreground">ID: {org.id.split('-')[0]}...</span>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-8 py-5 text-muted-foreground font-medium">
-                              {new Date(org.created_at).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short', year: 'numeric' })}
-                            </td>
-                            <td className="px-8 py-5 text-right">
-                              <Button variant="ghost" className="text-primary hover:bg-primary/10 hover:text-primary font-semibold rounded-lg">
-                                Ver Gestores
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <table className="w-full text-left text-sm text-foreground">
+  <thead className="bg-secondary/50 text-muted-foreground border-b border-border font-medium">
+    <tr>
+      <th className="px-8 py-5"><div className="flex items-center gap-2"><Building2 className="h-4 w-4"/>Cliente</div></th>
+      <th className="px-8 py-5"><div className="flex items-center gap-2"><Calendar className="h-4 w-4"/>Data de Cadastro</div></th>
+      <th className="px-8 py-5"><div className="flex items-center gap-2"><Activity className="h-4 w-4"/>Status</div></th>
+      <th className="px-8 py-5"><div className="flex items-center gap-2"><CreditCard className="h-4 w-4"/>Plano</div></th>
+      <th className="px-8 py-5 text-right"></th>
+    </tr>
+  </thead>
+  <tbody className="divide-y divide-border">
+    {organizations.map((org) => {
+      const mockEmail = org.email || `contato@${org.name.toLowerCase().replace(/\s+/g, '')}.com`;
+      const mockStatus = org.status || 'Ativo';
+      const mockPlan = org.plan || 'Plano Básico';
+      
+      return (
+        <tr key={org.id} className="hover:bg-accent/50 transition-colors group">
+          <td className="px-8 py-5">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+                {org.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <span className="font-bold text-foreground block text-base">{org.name}</span>
+                <span className="text-xs text-muted-foreground">{mockEmail}</span>
+              </div>
+            </div>
+          </td>
+          <td className="px-8 py-5 text-muted-foreground font-medium">
+            {new Date(org.created_at).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short', year: 'numeric' })}
+          </td>
+          <td className="px-8 py-5">
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+              mockStatus === 'Ativo' ? 'bg-emerald-500/10 text-emerald-500' :
+              mockStatus === 'Desativado' ? 'bg-red-500/10 text-red-500' :
+              mockStatus === 'Cancelado' ? 'bg-slate-500/10 text-slate-500' :
+              'bg-orange-500/10 text-orange-500'
+            }`}>
+              {mockStatus}
+            </span>
+          </td>
+          <td className="px-8 py-5 text-muted-foreground font-medium">
+            {mockPlan}
+          </td>
+          <td className="px-8 py-5 text-right">
+            <div className="flex items-center justify-end gap-1">
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-blue-500" onClick={() => openEditModal(org)}>
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-red-500" onClick={() => handleDeleteOrg(org)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
                   </div>
                 )}
               </div>
@@ -376,13 +478,69 @@ export function SuperAdminDashboard() {
         </div>
       </main>
 
-      {/* Modal Criar Tenant */}
+      {/* Modal Confirmar Exclusão */}
+      {deleteModalOpen && tenantToDelete && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in duration-200">
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 shrink-0">
+                  <Trash2 className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-foreground">Excluir Tenant</h3>
+                  <p className="text-sm text-muted-foreground">Esta ação é irreversível.</p>
+                </div>
+              </div>
+              
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  Você está prestes a excluir o tenant <strong className="font-bold">{tenantToDelete.name}</strong>. Todos os dados associados a esta organização serão permanentemente apagados.
+                </p>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Para confirmar, digite <span className="font-mono bg-secondary px-1 py-0.5 rounded text-foreground font-bold select-all">CONFIRMAR</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={deleteConfirmationText}
+                  onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                  placeholder="CONFIRMAR"
+                  className="w-full px-4 py-2.5 bg-card rounded-lg border border-slate-300 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all text-sm font-mono"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <Button type="button" variant="outline" size="md" onClick={() => setDeleteModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="primary" 
+                  size="md"
+                  className="bg-red-500 hover:bg-red-600 text-white border-red-600"
+                  disabled={deleteConfirmationText !== "CONFIRMAR"}
+                  onClick={confirmDeleteOrg}
+                >
+                  Excluir Permanentemente
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+            {/* Modal Criar Tenant */}
       {isCreating && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center px-6 py-4 border-b border-border">
               <h3 className="text-xl font-bold text-foreground">Criar Novo Tenant</h3>
-              <Button variant="ghost" size="icon" onClick={() => setIsCreating(false)} className="text-muted-foreground hover:text-slate-600">
+              <Button variant="ghost" size="icon" onClick={() => setIsCreating(false)} className="text-muted-foreground hover:text-foreground">
                 <span className="text-2xl leading-none">&times;</span>
               </Button>
             </div>
@@ -411,16 +569,18 @@ export function SuperAdminDashboard() {
                       Plano de Assinatura
                     </label>
                     <select
-                      disabled
-                      className="w-full px-4 py-2.5 bg-accent text-muted-foreground rounded-lg border border-slate-300 outline-none cursor-not-allowed text-sm appearance-none"
+                      value={orgPlan}
+                      onChange={(e) => setOrgPlan(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-card rounded-lg border border-slate-300 focus:border-[#2D60FF] focus:ring-1 focus:ring-[#2D60FF] outline-none transition-all text-sm appearance-none"
                     >
-                      <option>Plano Padrão (Fixo temporariamente)</option>
+                      <option value="Plano Básico">Plano Básico</option>
+                      <option value="Plano Pro">Plano Pro</option>
+                      <option value="Plano Enterprise">Plano Enterprise</option>
                     </select>
                   </div>
                 </div>
 
                 <hr className="border-border" />
-
                 <div>
                   <h4 className="text-lg font-bold text-foreground mb-4">Administrador do Tenant</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -469,11 +629,84 @@ export function SuperAdminDashboard() {
               </div>
               
               <div className="mt-8 pt-4 border-t border-border flex justify-end gap-3">
-                <Button type="button" variant="outline" size="md" onClick={() => setIsCreating(false)}>
+                <Button type="button" variant="outline" size="md" className="hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/50 transition-colors" onClick={() => setIsCreating(false)}>
                   Cancelar
                 </Button>
                 <Button type="submit" variant="primary" size="md">
                   Criar Tenant
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Tenant */}
+      {isEditModalOpen && editingOrg && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-lg animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-border">
+              <h3 className="text-xl font-bold text-foreground">Editar Tenant</h3>
+              <Button variant="ghost" size="icon" onClick={() => setIsEditModalOpen(false)} className="text-muted-foreground hover:text-foreground">
+                <span className="text-2xl leading-none">&times;</span>
+              </Button>
+            </div>
+            
+            <form onSubmit={handleEditOrg} className="p-6">
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Nome do Tenant *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={newOrgName}
+                    onChange={(e) => setNewOrgName(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-card rounded-lg border border-slate-300 focus:border-[#2D60FF] focus:ring-1 focus:ring-[#2D60FF] outline-none transition-all text-sm"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Plano de Assinatura
+                    </label>
+                    <select
+                      value={orgPlan}
+                      onChange={(e) => setOrgPlan(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-card rounded-lg border border-slate-300 focus:border-[#2D60FF] focus:ring-1 focus:ring-[#2D60FF] outline-none transition-all text-sm appearance-none"
+                    >
+                      <option value="Plano Básico">Plano Básico</option>
+                      <option value="Plano Pro">Plano Pro</option>
+                      <option value="Plano Enterprise">Plano Enterprise</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Status
+                    </label>
+                    <select
+                      value={orgStatus}
+                      onChange={(e) => setOrgStatus(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-card rounded-lg border border-slate-300 focus:border-[#2D60FF] focus:ring-1 focus:ring-[#2D60FF] outline-none transition-all text-sm appearance-none"
+                    >
+                      <option value="Ativo">Ativo</option>
+                      <option value="Pendente">Pendente</option>
+                      <option value="Desativado">Desativado</option>
+                      <option value="Cancelado">Cancelado</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-8 pt-4 border-t border-border flex justify-end gap-3">
+                <Button type="button" variant="outline" size="md" className="hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/50 transition-colors" onClick={() => setIsEditModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" variant="primary" size="md">
+                  Salvar Alterações
                 </Button>
               </div>
             </form>

@@ -2,34 +2,47 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { LogIn } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/ui/logo";
+import { useMutation } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
 export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setErrorMsg("");
+  // Configuração da Mutation do React Query para a chamada de Login
+  const loginMutation = useMutation({
+    mutationFn: async () => {
+      const response = await api.post('/auth/login', { email, password });
+      return response.data; // { user, token }
+    },
+    onSuccess: (data) => {
+      // 1. Salva o Token e os dados do Usuário de forma segura
+      localStorage.setItem('@ponto:token', data.token);
+      localStorage.setItem('@ponto:user', JSON.stringify(data.user));
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    setLoading(false);
-
-    if (error) {
-      setErrorMsg(error.message);
-    } else {
-      navigate("/app");
+      // 2. Redireciona baseado na 'role' devolvida pelo backend Node.js
+      if (data.user.role === "SUPERADMIN") {
+        navigate("/superadmin");
+      } else if (data.user.role === "ADMIN") {
+        navigate("/admin");
+      } else {
+        navigate("/app");
+      }
+    },
+    onError: (error: any) => {
+      // Captura o erro customizado da API ou exibe erro genérico
+      setErrorMsg(error.response?.data?.error || "Erro ao conectar com o servidor");
     }
+  });
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg("");
+    loginMutation.mutate();
   };
 
   return (
@@ -94,9 +107,9 @@ export function Login() {
               type="submit"
               variant="primary"
               className="flex w-full justify-center"
-              disabled={loading}
+              disabled={loginMutation.isPending}
             >
-              {loading ? "Entrando..." : "Entrar no Sistema"}
+              {loginMutation.isPending ? "Entrando..." : "Entrar no Sistema"}
             </Button>
           </div>
         </form>
