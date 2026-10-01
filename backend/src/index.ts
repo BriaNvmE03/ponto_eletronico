@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import routes from './routes';
+import { errorHandler } from './middlewares/errorHandler';
 
 dotenv.config();
 
@@ -26,6 +27,9 @@ app.get('/health', async (req, res) => {
 
 // Injetando as rotas mestre do sistema com o prefixo /api
 app.use('/api', routes);
+
+// Middleware de Erros Global (sempre deve ser o último middleware)
+app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`🚀 Backend running on http://localhost:${port}`);

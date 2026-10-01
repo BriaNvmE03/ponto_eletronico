@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "typeRoots": ["./node_modules/@types", "./src/types"],
     "target": "es2022",
     "module": "commonjs",
     "lib": ["es2022", "dom"],
@@ -8,6 +9,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "types": ["node"],
+    "rootDir": "./",
     "outDir": "./dist"
   },
   "include": ["src/**/*", "prisma/**/*"]
