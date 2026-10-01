@@ -92,6 +92,15 @@ export class UserService {
       throw new AppError('Acesso negado.', 403);
     }
 
+    if (data.email) {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: data.email }
+      });
+      if (existingUser && existingUser.id !== id) {
+        throw new AppError('Este e-mail já está em uso.', 400);
+      }
+    }
+
     return prisma.user.update({
       where: { id },
       data: {

@@ -24,6 +24,16 @@ export class TenantService {
     }
 
     const orgName = data.tenantName || data.orgName;
+    
+    if (data.adminEmail) {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: data.adminEmail }
+      });
+      if (existingUser) {
+        throw new AppError('O e-mail do administrador já está em uso.', 400);
+      }
+    }
+
     const passwordHash = await bcrypt.hash(data.adminPassword, 10);
 
     const result = await prisma.$transaction(async (tx) => {
