@@ -23,45 +23,205 @@ enum RecordType {
   BREAK_END
 }
 
-model Organization {
-  id        String   @id @default(uuid())
-  name      String
+enum JustificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Plan {
+  id             String   @id @default(uuid())
+  name           String   @unique
+  price          Float
+  maxUsers       Int
+  maxDepartments Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenants Tenant[]
+
+  @@map("plans")
+}
+
+model Tenant {
+  id     String @id @default(uuid())
+  name   String
+  status String @default("Ativo")
+
+  planId String?
+  plan   Plan?   @relation(fields: [planId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users     User[]
+  users         User[]
+  departments   Department[]
+  settings      TenantSettings?
+  workSchedules WorkSchedule[]
 
-  @@map("organizations")
+  @@map("tenants")
+}
+
+model TenantSettings {
+  id       String @id @default(uuid())
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  requirePhoto        Boolean @default(false)
+  requireLocation     Boolean @default(false)
+  allowedLat          Float?
+  allowedLng          Float?
+  allowedRadius       Int? // in meters
+  allowFridayAnywhere Boolean @default(false)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("tenant_settings")
+}
+
+model Department {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name     String
+
+  createdAt DateTime @default(now())
+
+  users         User[]
+  settings      DepartmentSettings?
+  workSchedules WorkSchedule[]
+
+  @@map("departments")
+}
+
+model DepartmentSettings {
+  id           String     @id @default(uuid())
+  departmentId String     @unique
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  // Nullable because if null, we inherit from TenantSettings
+  requirePhoto        Boolean?
+  requireLocation     Boolean?
+  allowedLat          Float?
+  allowedLng          Float?
+  allowedRadius       Int?
+  allowFridayAnywhere Boolean?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("department_settings")
+}
+
+model WorkSchedule {
+  id String @id @default(uuid())
+
+  // A schedule can belong globally to a Tenant, or specifically to a Department
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  dayOfWeek      Int // 0 = Sunday, 1 = Monday...
+  expectedStart1 String? // Format "HH:mm" e.g. "08:00"
+  expectedEnd1   String? // "12:00"
+  expectedStart2 String? // "13:00"
+  expectedEnd2   String? // "17:00"
+
+  totalExpectedMinutes Int     @default(0)
+  isExtraShift         Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@map("work_schedules")
 }
 
 model User {
-  id             String       @id @default(uuid())
-  email          String       @unique
-  passwordHash   String
-  fullName       String
-  role           Role         @default(EMPLOYEE)
-  
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id           String  @id @default(uuid())
+  email        String  @unique
+  passwordHash String
+  fullName     String
+  phone        String?
+  avatarUrl    String?
+  role         Role    @default(EMPLOYEE)
+  isActive     Boolean @default(true)
+  isFirstLogin Boolean @default(true)
 
-  timeRecords    TimeRecord[]
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dailyRecords   DailyRecord[]
+  punches        Punch[]
+  justifications Justification[]
 
   @@map("users")
 }
 
-model TimeRecord {
-  id          String     @id @default(uuid())
-  userId      String
-  user        User       @relation(fields: [userId], references: [id])
-  type        RecordType
-  timestamp   DateTime   @default(now())
-  locationLat Float?
-  locationLng Float?
-  
-  createdAt   DateTime   @default(now())
+model DailyRecord {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("time_records")
+  date DateTime // Stored as a date (e.g. midnight UTC)
+
+  expectedMinutes Int     @default(0)
+  workedMinutes   Int     @default(0)
+  balanceMinutes  Int     @default(0)
+  isExtraShiftDay Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  punches Punch[]
+
+  @@map("daily_records")
+}
+
+model Punch {
+  id            String      @id @default(uuid())
+  dailyRecordId String
+  dailyRecord   DailyRecord @relation(fields: [dailyRecordId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      RecordType
+  timestamp DateTime   @default(now())
+
+  photoUrl        String?
+  locationLat     Float?
+  locationLng     Float?
+  deviceInfo      String?
+  isEditedByAdmin Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  justifications Justification[]
+
+  @@map("punches")
+}
+
+model Justification {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  punchId String?
+  punch   Punch?  @relation(fields: [punchId], references: [id], onDelete: SetNull)
+
+  reason        String
+  status        JustificationStatus @default(PENDING)
+  attachmentUrl String?
+
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+  resolvedBy String? // The admin user ID who resolved it
+
+  @@map("justifications")
 }

@@ -8,7 +8,7 @@ declare global {
       user?: {
         id: string;
         role: string;
-        organizationId: string | null;
+        tenantId: string | null;
       };
     }
   }
@@ -28,7 +28,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
     const secret = process.env.JWT_SECRET;
     if (!secret) throw new Error("JWT_SECRET não configurado");
 
-    const decoded = jwt.verify(token, secret) as { id: string; role: string; organizationId: string | null };
+    const decoded = jwt.verify(token, secret) as { id: string; role: string; tenantId: string | null };
     
     // Injetando os dados decodificados do token dentro do request
     req.user = decoded;

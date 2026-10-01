@@ -9,21 +9,20 @@ async function main() {
   
   const passwordHash = await bcrypt.hash(plainPassword, 10);
   
-  // Cria a organização de teste
-  const org = await prisma.organization.create({
-    data: { name: 'Empresa de Teste' }
-  });
-
-  // Cria o usuário de teste
+  // Cria apenas o SuperAdmin global (não atrelado a nenhum Tenant)
   const user = await prisma.user.upsert({
     where: { email },
-    update: {},
+    update: {
+      passwordHash,
+      role: Role.SUPERADMIN,
+      tenantId: null
+    },
     create: {
       email,
       passwordHash,
-      fullName: 'Administrador de Teste',
+      fullName: 'Super Administrador de Teste',
       role: Role.SUPERADMIN,
-      organizationId: org.id
+      tenantId: null
     }
   });
 
