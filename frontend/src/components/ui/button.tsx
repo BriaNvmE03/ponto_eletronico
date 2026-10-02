@@ -101,7 +101,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         type={rest.type || "button"}
         whileTap={reduce ? undefined : { scale: pressScale }}
         whileHover={reduce || !canHover ? undefined : { scale: 1.02 }}
-        transition={SPRING_PRESS}
+        transition={SPRING_PRESS as any}
         onPointerDown={handlePointerDown}
         className={cn(
           "inline-flex items-center justify-center font-medium select-none",
