@@ -11,7 +11,14 @@ const app = express();
 const prisma = new PrismaClient();
 const port = process.env.PORT || 3001;
 
-app.use(cors());
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173', // Vite default port fallback
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Rota de Health Check
@@ -31,6 +38,12 @@ app.use('/api', routes);
 // Middleware de Erros Global (sempre deve ser o último middleware)
 app.use(errorHandler);
 
-app.listen(port, () => {
-  console.log(`🚀 Backend running on http://localhost:${port}`);
-});
+// Apenas escuta a porta localmente se não for um ambiente serverless (como a Vercel)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(port, () => {
+    console.log(`🚀 Backend running on http://localhost:${port}`);
+  });
+}
+
+// Exportar o app é necessário para o Serverless Function da Vercel
+export default app;

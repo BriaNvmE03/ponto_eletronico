@@ -106,3 +106,4 @@ Acesse o link local gerado pelo Vite no seu navegador e pronto!
 - **Sementes de Banco (Seeds)**: 
   - A seed oficial (`seed.ts`) que cria o primeiro super-administrador do sistema real nÃ£o Ã© rastreada pelo Git por questÃµes de seguranÃ§a.
   - A seed de teste (`seed-test.ts`) simula um ambiente de desenvolvimento e estÃ¡ disponÃ­vel para a comunidade.
+- **CORS Seguro**: A comunicação com a API é restrita para o domínio correto em produção através do FRONTEND_URL do .env.

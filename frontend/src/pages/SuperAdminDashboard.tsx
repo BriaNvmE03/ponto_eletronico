@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { UsersTab } from "@/components/superadmin/UsersTab";
 import { TenantsTab } from "@/components/superadmin/TenantsTab";
 import { PlansTab } from "@/components/superadmin/PlansTab";
+import { OverviewTab } from "@/components/superadmin/OverviewTab";
 
 export function SuperAdminDashboard() {
   const navigate = useNavigate();
@@ -197,13 +198,7 @@ export function SuperAdminDashboard() {
 
         <div className="p-4 md:p-8 flex-1">
           <div className="max-w-7xl mx-auto">
-            {activeTab === "overview" && (
-              <div className="animate-in fade-in duration-500 flex flex-col items-center justify-center h-96 border-2 border-dashed border-border rounded-3xl bg-card">
-                <Activity className="h-12 w-12 text-slate-300 mb-4" />
-                <h3 className="text-xl font-bold text-foreground">Dashboard</h3>
-                <p className="text-muted-foreground mt-2">Métricas gerais da plataforma em breve.</p>
-              </div>
-            )}
+            {activeTab === "overview" && <OverviewTab tenantsData={tenantsData} plansData={plansData} />}
 
             {activeTab === "users" && <UsersTab tenantsData={tenantsData} />}
             {activeTab === "tenants" && <TenantsTab tenantsData={tenantsData} plansData={plansData} />}

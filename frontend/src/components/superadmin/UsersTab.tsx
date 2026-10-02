@@ -102,6 +102,14 @@ export function UsersTab({ tenantsData }: { tenantsData?: any[] }) {
       setNewUserPassword("");
       setNewUserRole("EMPLOYEE");
       setIsTemporaryPassword(false);
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.error || "Erro ao criar usuário.";
+      if (msg.toLowerCase().includes("e-mail") || msg.toLowerCase().includes("email")) {
+        setCreateErrors(prev => ({ ...prev, email: msg }));
+      } else {
+        alert(msg);
+      }
     }
   });
 
@@ -174,6 +182,14 @@ export function UsersTab({ tenantsData }: { tenantsData?: any[] }) {
       queryClient.invalidateQueries({ queryKey: ['allUsers'] });
       setIsEditModalOpen(false);
       setUserToEdit(null);
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.error || "Erro ao atualizar usuário.";
+      if (msg.toLowerCase().includes("e-mail") || msg.toLowerCase().includes("email")) {
+        setEditErrors(prev => ({ ...prev, email: msg }));
+      } else {
+        alert(msg);
+      }
     }
   });
 
@@ -414,7 +430,7 @@ export function UsersTab({ tenantsData }: { tenantsData?: any[] }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* Status toggle compacto */}
                 <div>
-                  <label className="block text-sm font-semibold text-foreground mb-1.5 opacity-0 pointer-events-none">Status</label>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Acesso ao Sistema</label>
                   <div
                     className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-border bg-secondary/30 cursor-pointer select-none w-full hover:bg-secondary/50 transition-colors"
                     onClick={() => setEditIsActive(!editIsActive)}
@@ -436,11 +452,11 @@ export function UsersTab({ tenantsData }: { tenantsData?: any[] }) {
 
                 {/* Botão trocar senha */}
                 <div>
-                  <label className="block text-sm font-semibold text-foreground mb-1.5 opacity-0 pointer-events-none">Senha</label>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Segurança</label>
                   <button
                     type="button"
                     onClick={() => setShowChangePassword(!showChangePassword)}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-border bg-secondary/30 hover:bg-secondary/50 transition-colors text-[13px] font-semibold text-muted-foreground hover:text-foreground w-full"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-primary bg-transparent hover:bg-primary/10 transition-colors text-[13px] font-bold text-primary w-full shadow-sm"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />

@@ -2,7 +2,9 @@ import axios from 'axios';
 
 // Cria a instância do axios apontando para a nova API Node.js
 export const api = axios.create({
-  baseURL: 'http://localhost:3001/api', // Porta onde o Node.js está rodando
+  // No Vercel, import.meta.env.DEV é false, então usaremos o path relativo '/api'.
+  // No localhost, usamos a porta 3001 do backend.
+  baseURL: import.meta.env.DEV ? 'http://localhost:3001/api' : '/api',
   headers: {
     'Content-Type': 'application/json',
   },

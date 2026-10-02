@@ -16,6 +16,7 @@ export function TenantsTab({ tenantsData, plansData }: { tenantsData?: any[], pl
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+  const [tenantError, setTenantError] = useState("");
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [tenantToDelete, setTenantToDelete] = useState<any>(null);
@@ -54,6 +55,15 @@ export function TenantsTab({ tenantsData, plansData }: { tenantsData?: any[], pl
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenants'] });
       setIsModalOpen(false);
+      setTenantError("");
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.error || "Erro ao criar tenant.";
+      if (msg.toLowerCase().includes("e-mail") || msg.toLowerCase().includes("email")) {
+        setTenantError(msg);
+      } else {
+        alert(msg);
+      }
     }
   });
 
@@ -227,7 +237,8 @@ export function TenantsTab({ tenantsData, plansData }: { tenantsData?: any[], pl
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-foreground mb-1.5">E-mail Corporativo</label>
-                    <input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} className="w-full px-4 py-2.5 bg-secondary/30 rounded-lg border border-border focus:border-primary outline-none text-sm text-foreground" />
+                    <input type="email" value={adminEmail} onChange={(e) => { setAdminEmail(e.target.value); setTenantError(""); }} className={`w-full px-4 py-2.5 bg-secondary/30 rounded-lg border focus:bg-background focus:ring-1 outline-none text-sm text-foreground ${tenantError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-border focus:border-primary focus:ring-primary'}`} />
+                    {tenantError && <p className="text-xs text-red-500 mt-1">{tenantError}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-foreground mb-1.5">Senha Provisória</label>
