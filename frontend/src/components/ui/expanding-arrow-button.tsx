@@ -99,7 +99,7 @@ export const ExpandingArrowButton = forwardRef<
       onFocus={handleFocus}
       onBlur={handleBlur}
       whileTap={reduce || disabled ? undefined : { scale: 0.97 }}
-      transition={SPRING_PRESS}
+      transition={SPRING_PRESS as any}
       className={cn(
         "relative inline-flex h-[46px] min-w-48 items-center overflow-hidden rounded-[14px] bg-gradient-to-r from-[#2563EB] to-[#0EA5E9] p-1 text-white select-none shadow-[0_8px_20px_-6px_rgba(37,99,235,0.5)] border-none",
         "outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2",
@@ -111,7 +111,7 @@ export const ExpandingArrowButton = forwardRef<
       <motion.span
         layout="size"
         aria-hidden="true"
-        transition={layoutTransition}
+        transition={layoutTransition as any}
         style={{
           width: active ? "calc(100% - 8px)" : 38,
           borderRadius: 12,

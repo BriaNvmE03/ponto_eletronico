@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Building2, Users, Search, LogOut, CreditCard, Home, Settings, Bell, Shield, User, Menu, X, Activity, ChevronLeft, ChevronRight } from "lucide-react";
+import { Building2, Users, Search, LogOut, CreditCard, Home, Settings, Bell, Shield, User, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -17,13 +17,14 @@ export function SuperAdminDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const activeTabTitle = {
+  const tabTitles: Record<string, string> = {
     overview: "Dashboard",
     users: "Users",
     tenants: "Tenants",
     plans: "Planos",
     settings: "Settings",
-  }[activeTab as keyof typeof activeTabTitle];
+  };
+  const activeTabTitle = tabTitles[activeTab] || "Dashboard";
 
   const { data: tenantsData } = useQuery({
     queryKey: ['tenants'],
