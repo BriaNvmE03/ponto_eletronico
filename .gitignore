@@ -31,3 +31,4 @@ dist-ssr
 
 # Seed Oficial (Privado)
 backend/prisma/seed.ts
+.neon

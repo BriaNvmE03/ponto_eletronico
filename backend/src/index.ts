@@ -38,6 +38,12 @@ app.use('/api', routes);
 // Middleware de Erros Global (sempre deve ser o último middleware)
 app.use(errorHandler);
 
-app.listen(port, () => {
-  console.log(`🚀 Backend running on http://localhost:${port}`);
-});
+// Apenas escuta a porta localmente se não for um ambiente serverless (como a Vercel)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(port, () => {
+    console.log(`🚀 Backend running on http://localhost:${port}`);
+  });
+}
+
+// Exportar o app é necessário para o Serverless Function da Vercel
+export default app;
