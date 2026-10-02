@@ -2,5 +2,8 @@
   "dependencies": {
     "@neon/config": "^1.8.3",
     "@neon/env": "^1.4.8"
+  },
+  "scripts": {
+    "vercel-build": "cd backend && npm install && npx prisma generate && npx prisma migrate deploy && cd ../frontend && npm install && npm run build"
   }
 }
