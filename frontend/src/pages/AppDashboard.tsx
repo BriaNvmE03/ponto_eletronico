@@ -2,15 +2,24 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/ui/logo";
-import { LogOut, MapPin, Clock, Coffee, Play, Square } from "lucide-react";
+import { LogOut, MapPin, Clock, Coffee, Play, Square, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
+import { api } from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+interface Punch {
+  id: string;
+  type: "ENTRY" | "BREAK_START" | "BREAK_END" | "EXIT";
+  timestamp: string;
+}
 
 export function AppDashboard() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const userStr = localStorage.getItem("@ponto:user");
@@ -31,6 +40,53 @@ export function AppDashboard() {
     navigate("/login");
   };
 
+  // Buscar batidas de hoje
+  const { data: punches = [], isLoading: isLoadingPunches } = useQuery<Punch[]>({
+    queryKey: ["punches", "today"],
+    queryFn: async () => {
+      const res = await api.get("/punches/today");
+      return res.data;
+    },
+  });
+
+  // Mutação para registrar ponto
+  const punchMutation = useMutation({
+    mutationFn: async (coords?: { latitude: number; longitude: number }) => {
+      return api.post("/punches", {
+        locationLat: coords?.latitude,
+        locationLng: coords?.longitude,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["punches", "today"] });
+      alert("Ponto registrado com sucesso!");
+    },
+    onError: (error: any) => {
+      alert(error.response?.data?.error || "Erro ao registrar o ponto");
+    },
+  });
+
+  const handlePunch = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          punchMutation.mutate(position.coords);
+        },
+        (error) => {
+          console.warn("Geolocalização negada ou falhou", error);
+          // Permite bater sem localização por enquanto
+          punchMutation.mutate();
+        }
+      );
+    } else {
+      punchMutation.mutate();
+    }
+  };
+
+  const punchCount = punches.length;
+  const isFinished = punchCount >= 4;
+  const isPunching = punchMutation.isPending;
+
   return (
     <div className="min-h-screen bg-background pb-12 font-sans">
       {/* Header */}
@@ -46,7 +102,7 @@ export function AppDashboard() {
                 <p className="text-xs font-medium text-muted-foreground">Funcionário</p>
               </div>
               <div className="h-11 w-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold uppercase text-lg border border-primary/20">
-                {userEmail ? userEmail.charAt(0) : "U"}
+                {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
               </div>
               <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive ml-2" onClick={handleLogout}>
                 <LogOut className="h-5 w-5" />
@@ -69,31 +125,50 @@ export function AppDashboard() {
           
           <div className="flex items-center justify-center text-sm font-medium text-primary gap-2 pt-4 bg-primary/10 w-max mx-auto px-4 py-2 rounded-full">
             <MapPin className="h-4 w-4" />
-            <span>São Paulo, SP (Precisão: 15m)</span>
+            <span>Sua localização será registrada</span>
           </div>
         </div>
 
         {/* Botões de Ação */}
-        <div className="grid grid-cols-2 gap-4 sm:gap-6">
-          <Button variant="primary" ripple className="h-28 flex flex-col gap-3 rounded-[20px] shadow-[0_8px_20px_-6px_rgba(0,136,255,0.5)] group">
-            <Play className="h-7 w-7 fill-white/20 group-hover:fill-white/40 transition-all" strokeWidth={2} />
-            <span className="font-bold text-lg">Entrada</span>
-          </Button>
-          
-          <Button variant="outline" className="h-28 flex flex-col gap-3 rounded-[20px] text-muted-foreground disabled:opacity-50" disabled>
-            <Coffee className="h-7 w-7" strokeWidth={2} />
-            <span className="font-bold text-lg">Pausa</span>
-          </Button>
-          
-          <Button variant="outline" className="h-28 flex flex-col gap-3 rounded-[20px] text-muted-foreground disabled:opacity-50" disabled>
-            <Play className="h-7 w-7" strokeWidth={2} />
-            <span className="font-bold text-lg">Retorno</span>
-          </Button>
-          
-          <Button variant="outline" className="h-28 flex flex-col gap-3 rounded-[20px] text-muted-foreground disabled:opacity-50" disabled>
-            <Square className="h-7 w-7" strokeWidth={2} />
-            <span className="font-bold text-lg">Saída</span>
-          </Button>
+        <div className="bg-card rounded-[24px] shadow-sm border border-border p-6 flex flex-col items-center justify-center text-center">
+          {isLoadingPunches ? (
+            <div className="flex flex-col items-center text-muted-foreground py-8">
+              <Loader2 className="h-8 w-8 animate-spin mb-4" />
+              <p>Carregando status do dia...</p>
+            </div>
+          ) : isFinished ? (
+            <div className="py-8">
+              <div className="bg-emerald-100 text-emerald-800 p-4 rounded-full inline-block mb-4">
+                <Square className="h-8 w-8" />
+              </div>
+              <h3 className="text-2xl font-bold text-foreground">Expediente Encerrado!</h3>
+              <p className="text-muted-foreground mt-2">Você já registrou as 4 batidas de hoje. Bom descanso!</p>
+            </div>
+          ) : (
+            <div className="w-full max-w-sm mx-auto space-y-6 py-4">
+              <h3 className="text-xl font-medium text-muted-foreground">
+                Próxima Batida: <strong className="text-foreground">{
+                  punchCount === 0 ? "Entrada" :
+                  punchCount === 1 ? "Início da Pausa" :
+                  punchCount === 2 ? "Fim da Pausa" :
+                  "Saída"
+                }</strong>
+              </h3>
+              
+              <Button 
+                onClick={handlePunch} 
+                disabled={isPunching}
+                className="w-full h-24 rounded-2xl text-xl font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
+              >
+                {isPunching ? (
+                  <Loader2 className="h-8 w-8 animate-spin mr-3" />
+                ) : (
+                  <Play className="h-8 w-8 mr-3 fill-white" />
+                )}
+                {isPunching ? "Registrando..." : "Registrar Ponto Agora"}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Resumo do Dia */}
@@ -102,24 +177,33 @@ export function AppDashboard() {
             <div className="bg-primary/10 p-2 rounded-xl text-primary">
               <Clock className="h-5 w-5" />
             </div>
-            Resumo de Hoje
+            Minhas Batidas
           </h3>
           
-          <div className="space-y-5">
-            <div className="flex justify-between text-sm sm:text-base">
-              <span className="text-muted-foreground font-medium">Horas Trabalhadas</span>
-              <span className="font-bold text-foreground">00h 00m</span>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="w-full bg-background rounded-full h-3 overflow-hidden">
-              <div className="bg-primary h-full rounded-full w-[5%]" />
-            </div>
-            
-            <div className="flex justify-between text-xs sm:text-sm text-muted-foreground font-medium">
-              <span>0% da carga diária (8h)</span>
-              <span>Faltam 08h 00m</span>
-            </div>
+          <div className="space-y-4">
+            {isLoadingPunches ? (
+               <p className="text-muted-foreground text-center">Carregando...</p>
+            ) : punches.length === 0 ? (
+               <p className="text-muted-foreground text-center py-4 bg-muted/50 rounded-xl">Nenhum ponto registrado hoje.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {punches.map((p, idx) => (
+                  <div key={p.id} className="flex justify-between items-center p-4 bg-background border border-border rounded-xl">
+                    <div>
+                      <p className="font-bold text-foreground">
+                        {p.type === "ENTRY" ? "Entrada" : 
+                         p.type === "BREAK_START" ? "Início Pausa" : 
+                         p.type === "BREAK_END" ? "Retorno" : "Saída"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Batida {idx + 1}</p>
+                    </div>
+                    <div className="text-xl font-black tabular-nums text-primary">
+                      {format(new Date(p.timestamp), "HH:mm")}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
