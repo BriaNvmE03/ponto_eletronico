@@ -17,25 +17,54 @@ interface CreateUserDTO {
   isFirstLogin?: boolean;
 }
 
+interface CurrentUser {
+  id: string;
+  role: string;
+  tenantId: string | null;
+}
+
 export class UserService {
-  async getAllUsers(currentUserRole?: string) {
-    if (currentUserRole !== 'SUPERADMIN') {
-      throw new AppError('Acesso negado. Apenas SuperAdmins podem ver todos os usuários.', 403);
+  async getAllUsers(currentUser: CurrentUser | undefined) {
+    if (!currentUser) throw new AppError('Usuário não autenticado', 401);
+
+    if (currentUser.role === 'SUPERADMIN') {
+      // SuperAdmin pode ver todo mundo, exceto outros SUPERADMINS (opcional)
+      return prisma.user.findMany({
+        where: { role: { not: 'SUPERADMIN' } },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          tenant: { select: { name: true } },
+          department: { select: { name: true } }
+        }
+      });
     }
 
-    return prisma.user.findMany({
-      where: { role: { not: 'SUPERADMIN' } },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        tenant: { select: { name: true } },
-        department: { select: { name: true } }
-      }
-    });
+    if (currentUser.role === 'ADMIN' && currentUser.tenantId) {
+      // Admin só pode ver os usuários do seu próprio tenant
+      return prisma.user.findMany({
+        where: { tenantId: currentUser.tenantId, role: { not: 'SUPERADMIN' } },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          department: { select: { name: true } }
+        }
+      });
+    }
+
+    throw new AppError('Acesso negado.', 403);
   }
 
-  async createUser(currentUserRole: string | undefined, data: CreateUserDTO) {
-    if (currentUserRole !== 'SUPERADMIN') {
-      throw new AppError('Acesso negado. Apenas SuperAdmins podem criar usuários livremente.', 403);
+  async createUser(currentUser: CurrentUser | undefined, data: CreateUserDTO) {
+    if (!currentUser) throw new AppError('Usuário não autenticado', 401);
+
+    if (currentUser.role === 'ADMIN') {
+      // Garante que o ADMIN só crie usuários para a própria empresa
+      data.tenantId = currentUser.tenantId;
+      // ADMIN não pode criar superadmins
+      if (data.role === 'SUPERADMIN') {
+        throw new AppError('Acesso negado. Apenas SuperAdmins podem criar outros SuperAdmins.', 403);
+      }
+    } else if (currentUser.role !== 'SUPERADMIN') {
+      throw new AppError('Acesso negado.', 403);
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
@@ -69,9 +98,18 @@ export class UserService {
     return newUser;
   }
 
-  async updateUserStatus(currentUserRole: string | undefined, id: string, isActive: boolean) {
-    if (currentUserRole !== 'SUPERADMIN') {
-      throw new AppError('Acesso negado.', 403);
+  async updateUserStatus(currentUser: CurrentUser | undefined, id: string, isActive: boolean) {
+    if (!currentUser) throw new AppError('Usuário não autenticado', 401);
+
+    const userToUpdate = await prisma.user.findUnique({ where: { id } });
+    if (!userToUpdate) throw new AppError('Usuário não encontrado', 404);
+
+    if (currentUser.role === 'ADMIN' && userToUpdate.tenantId !== currentUser.tenantId) {
+      throw new AppError('Acesso negado. Este usuário não pertence à sua organização.', 403);
+    }
+
+    if (currentUser.role !== 'SUPERADMIN' && currentUser.role !== 'ADMIN') {
+        throw new AppError('Acesso negado.', 403);
     }
 
     return prisma.user.update({
@@ -80,7 +118,7 @@ export class UserService {
     });
   }
 
-  async updateUser(currentUserRole: string | undefined, id: string, data: {
+  async updateUser(currentUser: CurrentUser | undefined, id: string, data: {
     fullName?: string;
     email?: string;
     phone?: string;
@@ -88,7 +126,23 @@ export class UserService {
     tenantId?: string | null;
     isActive?: boolean;
   }) {
-    if (currentUserRole !== 'SUPERADMIN') {
+    if (!currentUser) throw new AppError('Usuário não autenticado', 401);
+
+    const userToUpdate = await prisma.user.findUnique({ where: { id } });
+    if (!userToUpdate) throw new AppError('Usuário não encontrado', 404);
+
+    if (currentUser.role === 'ADMIN') {
+      if (userToUpdate.tenantId !== currentUser.tenantId) {
+        throw new AppError('Acesso negado. Este usuário não pertence à sua organização.', 403);
+      }
+      // ADMIN não pode mudar o usuário para outro tenant nem transformá-lo em SUPERADMIN
+      if (data.tenantId && data.tenantId !== currentUser.tenantId) {
+        throw new AppError('Você não pode mover um usuário para outra organização.', 403);
+      }
+      if (data.role === 'SUPERADMIN') {
+        throw new AppError('Você não pode promover um usuário a SuperAdmin.', 403);
+      }
+    } else if (currentUser.role !== 'SUPERADMIN') {
       throw new AppError('Acesso negado.', 403);
     }
 
@@ -117,8 +171,17 @@ export class UserService {
     });
   }
 
-  async changePassword(currentUserRole: string | undefined, id: string, newPassword: string) {
-    if (currentUserRole !== 'SUPERADMIN') {
+  async changePassword(currentUser: CurrentUser | undefined, id: string, newPassword: string) {
+    if (!currentUser) throw new AppError('Usuário não autenticado', 401);
+
+    const userToUpdate = await prisma.user.findUnique({ where: { id } });
+    if (!userToUpdate) throw new AppError('Usuário não encontrado', 404);
+
+    if (currentUser.role === 'ADMIN' && userToUpdate.tenantId !== currentUser.tenantId) {
+      throw new AppError('Acesso negado. Este usuário não pertence à sua organização.', 403);
+    }
+
+    if (currentUser.role !== 'SUPERADMIN' && currentUser.role !== 'ADMIN') {
       throw new AppError('Acesso negado.', 403);
     }
 
@@ -134,8 +197,17 @@ export class UserService {
     });
   }
 
-  async deleteUser(currentUserRole: string | undefined, id: string) {
-    if (currentUserRole !== 'SUPERADMIN') {
+  async deleteUser(currentUser: CurrentUser | undefined, id: string) {
+    if (!currentUser) throw new AppError('Usuário não autenticado', 401);
+
+    const userToDelete = await prisma.user.findUnique({ where: { id } });
+    if (!userToDelete) throw new AppError('Usuário não encontrado', 404);
+
+    if (currentUser.role === 'ADMIN' && userToDelete.tenantId !== currentUser.tenantId) {
+      throw new AppError('Acesso negado. Este usuário não pertence à sua organização.', 403);
+    }
+
+    if (currentUser.role !== 'SUPERADMIN' && currentUser.role !== 'ADMIN') {
       throw new AppError('Acesso negado.', 403);
     }
 
