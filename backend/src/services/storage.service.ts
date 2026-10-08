@@ -1,5 +1,5 @@
 import { Client } from 'minio';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { AppError } from '../errors/AppError';
 
 class StorageService {
@@ -83,7 +83,7 @@ class StorageService {
       const mimeType = matches[1];
       const buffer = Buffer.from(matches[2], 'base64');
       const extension = mimeType.split('/')[1] || 'jpeg';
-      const fileName = `${folder}/${uuidv4()}.${extension}`;
+      const fileName = `${folder}/${randomUUID()}.${extension}`;
 
       await this.minioClient.putObject(
         this.bucketName,
