@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/ui/logo";
-import { LogOut, MapPin, Clock, Play, Square, Loader2 } from "lucide-react";
+import { LogOut, MapPin, Clock, Play, Square, Loader2, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -131,42 +131,71 @@ export function AppDashboard() {
 
         {/* Botões de Ação */}
         <div className="bg-card rounded-[24px] shadow-sm border border-border p-6 flex flex-col items-center justify-center text-center">
+
           {isLoadingPunches ? (
-            <div className="flex flex-col items-center text-muted-foreground py-8">
+            <div className="flex flex-col items-center text-muted-foreground py-8 w-full">
               <Loader2 className="h-8 w-8 animate-spin mb-4" />
               <p>Carregando status do dia...</p>
             </div>
-          ) : isFinished ? (
-            <div className="py-8">
-              <div className="bg-emerald-100 text-emerald-800 p-4 rounded-full inline-block mb-4">
-                <Square className="h-8 w-8" />
-              </div>
-              <h3 className="text-2xl font-bold text-foreground">Expediente Encerrado!</h3>
-              <p className="text-muted-foreground mt-2">Você já registrou as 4 batidas de hoje. Bom descanso!</p>
-            </div>
           ) : (
-            <div className="w-full max-w-sm mx-auto space-y-6 py-4">
-              <h3 className="text-xl font-medium text-muted-foreground">
+            <div className="w-full">
+              <h3 className="text-xl font-medium text-muted-foreground mb-6">
                 Próxima Batida: <strong className="text-foreground">{
                   punchCount === 0 ? "Entrada" :
                   punchCount === 1 ? "Início da Pausa" :
                   punchCount === 2 ? "Fim da Pausa" :
-                  "Saída"
+                  punchCount === 3 ? "Saída" : "Expediente Encerrado"
                 }</strong>
               </h3>
               
-              <Button 
-                onClick={handlePunch} 
-                disabled={isPunching}
-                className="w-full h-24 rounded-2xl text-xl font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
-              >
-                {isPunching ? (
-                  <Loader2 className="h-8 w-8 animate-spin mr-3" />
-                ) : (
-                  <Play className="h-8 w-8 mr-3 fill-white" />
-                )}
-                {isPunching ? "Registrando..." : "Registrar Ponto Agora"}
-              </Button>
+              <div className="grid grid-cols-2 gap-4">
+                <Button 
+                  onClick={handlePunch} 
+                  disabled={isPunching || punchCount !== 0}
+                  variant={punchCount === 0 ? "default" : punchCount > 0 ? "outline" : "secondary"}
+                  className={`h-28 rounded-2xl text-lg font-bold transition-all flex flex-col items-center justify-center gap-3 ${punchCount === 0 ? 'shadow-lg shadow-primary/25 scale-105 border-2 border-primary ring-4 ring-primary/10' : punchCount > 0 ? 'opacity-50 border-emerald-500 text-emerald-500 bg-emerald-500/10' : ''}`}
+                >
+                  {isPunching && punchCount === 0 ? <Loader2 className="h-8 w-8 animate-spin" /> : <Play className="h-8 w-8" />}
+                  Entrada
+                </Button>
+
+                <Button 
+                  onClick={handlePunch} 
+                  disabled={isPunching || punchCount !== 1}
+                  variant={punchCount === 1 ? "default" : punchCount > 1 ? "outline" : "secondary"}
+                  className={`h-28 rounded-2xl text-lg font-bold transition-all flex flex-col items-center justify-center gap-3 ${punchCount === 1 ? 'shadow-lg shadow-primary/25 scale-105 border-2 border-primary ring-4 ring-primary/10' : punchCount > 1 ? 'opacity-50 border-emerald-500 text-emerald-500 bg-emerald-500/10' : ''}`}
+                >
+                  {isPunching && punchCount === 1 ? <Loader2 className="h-8 w-8 animate-spin" /> : <Clock className="h-8 w-8" />}
+                  Início Pausa
+                </Button>
+
+                <Button 
+                  onClick={handlePunch} 
+                  disabled={isPunching || punchCount !== 2}
+                  variant={punchCount === 2 ? "default" : punchCount > 2 ? "outline" : "secondary"}
+                  className={`h-28 rounded-2xl text-lg font-bold transition-all flex flex-col items-center justify-center gap-3 ${punchCount === 2 ? 'shadow-lg shadow-primary/25 scale-105 border-2 border-primary ring-4 ring-primary/10' : punchCount > 2 ? 'opacity-50 border-emerald-500 text-emerald-500 bg-emerald-500/10' : ''}`}
+                >
+                  {isPunching && punchCount === 2 ? <Loader2 className="h-8 w-8 animate-spin" /> : <CheckCircle2 className="h-8 w-8" />}
+                  Retorno
+                </Button>
+
+                <Button 
+                  onClick={handlePunch} 
+                  disabled={isPunching || punchCount !== 3}
+                  variant={punchCount === 3 ? "default" : punchCount > 3 ? "outline" : "secondary"}
+                  className={`h-28 rounded-2xl text-lg font-bold transition-all flex flex-col items-center justify-center gap-3 ${punchCount === 3 ? 'shadow-lg shadow-primary/25 scale-105 border-2 border-primary ring-4 ring-primary/10' : punchCount > 3 ? 'opacity-50 border-emerald-500 text-emerald-500 bg-emerald-500/10' : ''}`}
+                >
+                  {isPunching && punchCount === 3 ? <Loader2 className="h-8 w-8 animate-spin" /> : <Square className="h-8 w-8" />}
+                  Saída
+                </Button>
+              </div>
+
+              {isFinished && (
+                <div className="mt-8 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 p-4 rounded-xl flex items-center justify-center gap-3">
+                  <Square className="h-6 w-6" />
+                  <span className="font-bold">Expediente Encerrado! Bom descanso.</span>
+                </div>
+              )}
             </div>
           )}
         </div>
