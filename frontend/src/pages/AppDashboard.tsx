@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Logo } from "@/components/ui/logo";
 import { LogOut, MapPin, Clock, Play, Square, Loader2, CheckCircle2, Activity } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -17,8 +16,14 @@ interface Punch {
 
 export function AppDashboard() {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>("Usuário");
+  const [userInitials, setUserInitials] = useState<string>("U");
   const [currentSlide, setCurrentSlide] = useState(0);
+
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const navigate = useNavigate();
@@ -28,7 +33,15 @@ export function AppDashboard() {
     const userStr = localStorage.getItem("@ponto:user");
     if (userStr) {
       const user = JSON.parse(userStr);
-      setUserEmail(user.email);
+      const fullName = user.fullName || user.email || "Usuário";
+      const parts = fullName.trim().split(" ");
+      if (parts.length > 1) {
+        setUserName(parts[0] + " " + parts[1]);
+        setUserInitials(parts[0][0] + parts[1][0]);
+      } else {
+        setUserName(parts[0]);
+        setUserInitials(parts[0].substring(0, 2));
+      }
     } else {
       navigate("/login");
     }
@@ -60,10 +73,11 @@ export function AppDashboard() {
   });
 
   const punchMutation = useMutation({
-    mutationFn: async (coords?: { latitude: number; longitude: number }) => {
+    mutationFn: async (data?: { coords?: { latitude: number; longitude: number }; photoBase64?: string }) => {
       return api.post("/punches", {
-        locationLat: coords?.latitude,
-        locationLng: coords?.longitude,
+        locationLat: data?.coords?.latitude,
+        locationLng: data?.coords?.longitude,
+        photoBase64: data?.photoBase64,
       });
     },
     onSuccess: () => {
@@ -74,19 +88,66 @@ export function AppDashboard() {
     },
   });
 
-  const handlePunch = () => {
+  const openCamera = async () => {
+    setIsCameraOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.warn('Erro ao acessar a câmera', err);
+      alert('Não foi possível acessar a câmera. Verifique as permissões do seu navegador.');
+      setIsCameraOpen(false);
+    }
+  };
+
+  const closeCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+    }
+    setIsCameraOpen(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        
+        closeCamera();
+        executePunch(dataUrl);
+      }
+    }
+  };
+
+  const handlePunchClick = () => {
+    // Exige foto apenas na Entrada (0) e Saída (3)
+    if (punchCount === 0 || punchCount === 3) {
+      openCamera();
+    } else {
+      executePunch();
+    }
+  };
+
+  const executePunch = (photoData?: string) => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          punchMutation.mutate(position.coords);
+          punchMutation.mutate({ coords: position.coords, photoBase64: photoData });
         },
         (error) => {
-          console.warn("Geolocalização negada ou falhou", error);
-          punchMutation.mutate();
+          console.warn('Geolocalização negada ou falhou', error);
+          punchMutation.mutate({ photoBase64: photoData });
         }
       );
     } else {
-      punchMutation.mutate();
+      punchMutation.mutate({ photoBase64: photoData });
     }
   };
 
@@ -131,22 +192,57 @@ export function AppDashboard() {
 
   return (
     <div className="min-h-screen bg-background pb-12 font-sans selection:bg-indigo-500/30">
+      {/* Modal da Câmera */}
+      {isCameraOpen && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center p-4">
+          <div className="w-full max-w-md bg-card border border-border/50 rounded-[24px] overflow-hidden shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-border/50 text-center">
+              <h3 className="font-semibold text-foreground">Sorria para a câmera!</h3>
+              <p className="text-xs text-muted-foreground mt-1">Sua foto será registrada com a batida de ponto.</p>
+            </div>
+            <div className="relative bg-black aspect-[3/4] w-full flex items-center justify-center overflow-hidden">
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                muted 
+                className="w-full h-full object-cover scale-x-[-1]"
+              />
+            </div>
+            <div className="p-6 flex items-center justify-center gap-4 bg-card">
+              <Button variant="outline" className="flex-1 rounded-xl h-12" onClick={closeCamera}>
+                Cancelar
+              </Button>
+              <Button className="flex-1 rounded-xl h-12 bg-indigo-500 hover:bg-indigo-600 text-white" onClick={capturePhoto}>
+                Capturar Foto
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="bg-card/50 backdrop-blur-md border-b border-border/50 sticky top-0 z-10">
         <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 justify-between items-center">
-            <Logo text="Ponto." />
+            
+            {/* Esquerda: Foto e Nome */}
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-bold uppercase text-sm border border-indigo-500/20 overflow-hidden">
+                {userInitials}
+              </div>
+              <span className="text-sm font-semibold text-foreground">
+                {userName}
+              </span>
+            </div>
+            
+            {/* Direita: Ações */}
             <div className="flex items-center gap-3">
               <ThemeToggle />
-              <div className="text-right hidden sm:block">
-                <p className="text-xs font-medium text-foreground">{userEmail}</p>
-              </div>
-              <div className="h-8 w-8 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-bold uppercase text-xs border border-indigo-500/20">
-                {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
-              </div>
               <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive h-8 w-8 ml-1" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
+
           </div>
         </div>
       </header>
@@ -201,7 +297,7 @@ export function AppDashboard() {
                   
                   <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-2xl mx-auto w-full">
                     <Button 
-                      onClick={handlePunch} 
+                      onClick={handlePunchClick} 
                       disabled={isPunching || punchCount !== 0}
                       variant="outline"
                       className={`h-24 sm:h-28 rounded-xl text-sm sm:text-base font-normal transition-all flex flex-col items-center justify-center gap-2 ${punchCount === 0 ? 'border-emerald-500/50 bg-emerald-500/5 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.05)]' : 'border-border/50 bg-card/30 text-muted-foreground/50 opacity-60'}`}
@@ -211,7 +307,7 @@ export function AppDashboard() {
                     </Button>
 
                     <Button 
-                      onClick={handlePunch} 
+                      onClick={handlePunchClick} 
                       disabled={isPunching || punchCount !== 1}
                       variant="outline"
                       className={`h-24 sm:h-28 rounded-xl text-sm sm:text-base font-normal transition-all flex flex-col items-center justify-center gap-2 ${punchCount === 1 ? 'border-emerald-500/50 bg-emerald-500/5 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.05)]' : 'border-border/50 bg-card/30 text-muted-foreground/50 opacity-60'}`}
@@ -221,7 +317,7 @@ export function AppDashboard() {
                     </Button>
 
                     <Button 
-                      onClick={handlePunch} 
+                      onClick={handlePunchClick} 
                       disabled={isPunching || punchCount !== 2}
                       variant="outline"
                       className={`h-24 sm:h-28 rounded-xl text-sm sm:text-base font-normal transition-all flex flex-col items-center justify-center gap-2 ${punchCount === 2 ? 'border-emerald-500/50 bg-emerald-500/5 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.05)]' : 'border-border/50 bg-card/30 text-muted-foreground/50 opacity-60'}`}
@@ -231,7 +327,7 @@ export function AppDashboard() {
                     </Button>
 
                     <Button 
-                      onClick={handlePunch} 
+                      onClick={handlePunchClick} 
                       disabled={isPunching || punchCount !== 3}
                       variant="outline"
                       className={`h-24 sm:h-28 rounded-xl text-sm sm:text-base font-normal transition-all flex flex-col items-center justify-center gap-2 ${punchCount === 3 ? 'border-emerald-500/50 bg-emerald-500/5 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.05)]' : 'border-border/50 bg-card/30 text-muted-foreground/50 opacity-60'}`}
