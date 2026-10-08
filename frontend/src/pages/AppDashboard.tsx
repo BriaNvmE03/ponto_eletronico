@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Logo } from "@/components/ui/logo";
 import { LogOut, MapPin, Clock, Play, Square, Loader2, CheckCircle2, Activity } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -17,7 +16,8 @@ interface Punch {
 
 export function AppDashboard() {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>("Usuário");
+  const [userInitials, setUserInitials] = useState<string>("U");
   const [currentSlide, setCurrentSlide] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -28,7 +28,15 @@ export function AppDashboard() {
     const userStr = localStorage.getItem("@ponto:user");
     if (userStr) {
       const user = JSON.parse(userStr);
-      setUserEmail(user.email);
+      const fullName = user.fullName || user.email || "Usuário";
+      const parts = fullName.trim().split(" ");
+      if (parts.length > 1) {
+        setUserName(parts[0] + " " + parts[1]);
+        setUserInitials(parts[0][0] + parts[1][0]);
+      } else {
+        setUserName(parts[0]);
+        setUserInitials(parts[0].substring(0, 2));
+      }
     } else {
       navigate("/login");
     }
@@ -134,19 +142,25 @@ export function AppDashboard() {
       <header className="bg-card/50 backdrop-blur-md border-b border-border/50 sticky top-0 z-10">
         <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 justify-between items-center">
-            <Logo text="Ponto." />
+            
+            {/* Esquerda: Foto e Nome */}
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-bold uppercase text-sm border border-indigo-500/20 overflow-hidden">
+                {userInitials}
+              </div>
+              <span className="text-sm font-semibold text-foreground">
+                {userName}
+              </span>
+            </div>
+            
+            {/* Direita: Ações */}
             <div className="flex items-center gap-3">
               <ThemeToggle />
-              <div className="text-right hidden sm:block">
-                <p className="text-xs font-medium text-foreground">{userEmail}</p>
-              </div>
-              <div className="h-8 w-8 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-bold uppercase text-xs border border-indigo-500/20">
-                {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
-              </div>
               <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive h-8 w-8 ml-1" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
+
           </div>
         </div>
       </header>
