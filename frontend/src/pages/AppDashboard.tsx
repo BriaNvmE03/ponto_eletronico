@@ -116,14 +116,14 @@ export function AppDashboard() {
       seconds += Math.max(0, end2.getTime() - start2.getTime()) / 1000;
     }
 
-    return Math.floor(seconds);
+    return Number.isNaN(seconds) ? 0 : Math.floor(seconds);
   }, [punches, currentTime]);
 
   const workedHoursStr = String(Math.floor(workedSeconds / 3600)).padStart(2, '0');
   const workedMinutesStr = String(Math.floor((workedSeconds % 3600) / 60)).padStart(2, '0');
   
   const totalExpectedSeconds = 8 * 3600;
-  const progressPercent = Math.min(100, (workedSeconds / totalExpectedSeconds) * 100);
+  const progressPercent = Number.isNaN(workedSeconds) ? 0 : Math.min(100, (workedSeconds / totalExpectedSeconds) * 100);
   
   // Arch SVG calculations (radius 40, pi = 3.14159)
   const archLength = 40 * Math.PI; // approx 125.66
