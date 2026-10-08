@@ -59,6 +59,32 @@ export class PunchService {
       }
     });
 
+    // Se a batida foi a de saída (última do dia), calculamos o tempo total e salvamos no banco
+    if (nextType === 'EXIT') {
+      const allPunches = [...dailyRecord.punches, newPunch];
+      
+      const entry = allPunches.find(p => p.type === 'ENTRY');
+      const breakStart = allPunches.find(p => p.type === 'BREAK_START');
+      const breakEnd = allPunches.find(p => p.type === 'BREAK_END');
+      const exit = allPunches.find(p => p.type === 'EXIT');
+
+      if (entry && breakStart && breakEnd && exit) {
+        const period1 = breakStart.timestamp.getTime() - entry.timestamp.getTime();
+        const period2 = exit.timestamp.getTime() - breakEnd.timestamp.getTime();
+        
+        const workedMinutes = Math.floor((period1 + period2) / 60000);
+        const balanceMinutes = workedMinutes - dailyRecord.expectedMinutes;
+
+        await prisma.dailyRecord.update({
+          where: { id: dailyRecord.id },
+          data: {
+            workedMinutes,
+            balanceMinutes
+          }
+        });
+      }
+    }
+
     return newPunch;
   }
 
