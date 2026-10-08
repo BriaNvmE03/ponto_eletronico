@@ -19,7 +19,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json({ limit: \'50mb\' }));
+app.use(express.json({ limit: '50mb' }));
 
 // Rota de Health Check
 app.get('/health', async (req, res) => {
