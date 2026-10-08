@@ -11,7 +11,7 @@
     "vercel-build": "prisma migrate deploy"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "ts-node prisma/seed-test.ts && ts-node prisma/seed-plans.ts"
   },
   "keywords": [],
   "author": "",
