@@ -1,3 +1,4 @@
+import { TenantStatus } from '@prisma/client';
 import { z } from 'zod';
 
 export const createTenantSchema = z.object({
@@ -20,7 +21,7 @@ export const updateTenantSchema = z.object({
   }),
   body: z.object({
     name: z.string().min(2, 'O nome da empresa deve ter no mínimo 2 caracteres'),
-    status: z.string().optional(),
+    status: z.nativeEnum(TenantStatus).optional(),
     planId: z.string().uuid('ID de plano inválido').optional(),
   }),
 });

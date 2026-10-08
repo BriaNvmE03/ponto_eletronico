@@ -11,7 +11,7 @@ export function TenantsTab({ tenantsData, plansData }: { tenantsData?: any[], pl
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [tenantName, setTenantName] = useState("");
-  const [tenantStatus, setTenantStatus] = useState("Ativo");
+  const [tenantStatus, setTenantStatus] = useState("ATIVO");
   const [tenantPlanId, setTenantPlanId] = useState("");
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
@@ -167,11 +167,11 @@ export function TenantsTab({ tenantsData, plansData }: { tenantsData?: any[], pl
                     </td>
                     <td className="px-8 py-5">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        tenant.status === 'Ativo' ? 'bg-emerald-500/10 text-emerald-500' :
-                        tenant.status === 'Cancelado' ? 'bg-red-500/10 text-red-500' :
+                        tenant.status === 'ATIVO' ? 'bg-emerald-500/10 text-emerald-500' :
+                        tenant.status === 'CANCELADO' ? 'bg-red-500/10 text-red-500' :
                         'bg-amber-500/10 text-amber-500'
                       }`}>
-                        {tenant.status || 'Ativo'}
+                        {tenant.status === 'ATIVO' ? 'Ativo' : tenant.status === 'PENDENTE' ? 'Pendente' : tenant.status === 'CANCELADO' ? 'Cancelado' : 'Desativado'}
                       </span>
                     </td>
                     <td className="px-8 py-5 text-muted-foreground font-medium">
@@ -227,10 +227,10 @@ export function TenantsTab({ tenantsData, plansData }: { tenantsData?: any[], pl
                     <label className="block text-sm font-semibold text-foreground mb-1">Status</label>
                     <div className="relative">
                       <select value={tenantStatus} onChange={(e) => setTenantStatus(e.target.value)} className="w-full px-3 py-2 bg-secondary/30 rounded-md border border-border outline-none transition-all text-sm text-foreground appearance-none pr-10">
-                        <option value="Ativo">Ativo</option>
-                        <option value="Pendente">Pendente</option>
-                        <option value="Desativado">Desativado</option>
-                        <option value="Cancelado">Cancelado</option>
+                        <option value="ATIVO">Ativo</option>
+                        <option value="PENDENTE">Pendente</option>
+                        <option value="DESATIVADO">Desativado</option>
+                        <option value="CANCELADO">Cancelado</option>
                       </select>
                       <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
                     </div>
