@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Building2, Pencil, Trash2, X } from "lucide-react";
+import { Search, Building2, Pencil, Trash2, X, ChevronDown, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
@@ -16,6 +16,7 @@ export function TenantsTab({ tenantsData, plansData }: { tenantsData?: any[], pl
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [tenantError, setTenantError] = useState("");
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -197,57 +198,74 @@ export function TenantsTab({ tenantsData, plansData }: { tenantsData?: any[], pl
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-card rounded-2xl shadow-2xl w-full max-w-lg my-8 animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-border">
+            <div className="p-5 border-b border-border flex justify-between items-center">
               <h3 className="text-xl font-bold text-foreground">{isEditing ? "Editar Tenant" : "Criar Novo Tenant"}</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            <div className="p-6 space-y-5">
+            <div className="p-5 space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Nome da Organização</label>
-                <input type="text" value={tenantName} onChange={(e) => setTenantName(e.target.value)} className="w-full px-4 py-2.5 bg-secondary/30 rounded-lg border border-border focus:bg-background focus:border-primary outline-none transition-all text-sm text-foreground" />
+                <label className="block text-sm font-semibold text-foreground mb-1">Nome da Organização</label>
+                <input type="text" value={tenantName} onChange={(e) => setTenantName(e.target.value)} className="w-full px-3 py-2 bg-secondary/30 rounded-md border border-border focus:bg-background focus:border-primary outline-none transition-all text-sm text-foreground" />
               </div>
-              <div className="grid grid-cols-2 gap-5">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-foreground mb-1.5">Plano</label>
-                  <select value={tenantPlanId} onChange={(e) => setTenantPlanId(e.target.value)} className="w-full px-4 py-2.5 bg-secondary/30 rounded-lg border border-border outline-none transition-all text-sm text-foreground appearance-none">
-                    <option value="">Selecione um plano</option>
-                    {plansData?.map((p: any) => (
-                      <option key={p.id} value={p.id}>{p.name} - R$ {p.price}</option>
-                    ))}
-                  </select>
+                  <label className="block text-sm font-semibold text-foreground mb-1">Plano</label>
+                  <div className="relative">
+                    <select value={tenantPlanId} onChange={(e) => setTenantPlanId(e.target.value)} className="w-full px-3 py-2 bg-secondary/30 rounded-md border border-border outline-none transition-all text-sm text-foreground appearance-none pr-10">
+                      <option value="">Selecione um plano</option>
+                      {plansData?.map((p: any) => (
+                        <option key={p.id} value={p.id}>{p.name} - R$ {p.price}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  </div>
                 </div>
                 {isEditing && (
                   <div>
-                    <label className="block text-sm font-semibold text-foreground mb-1.5">Status</label>
-                    <select value={tenantStatus} onChange={(e) => setTenantStatus(e.target.value)} className="w-full px-4 py-2.5 bg-secondary/30 rounded-lg border border-border outline-none transition-all text-sm text-foreground appearance-none">
-                      <option value="Ativo">Ativo</option>
-                      <option value="Pendente">Pendente</option>
-                      <option value="Desativado">Desativado</option>
-                      <option value="Cancelado">Cancelado</option>
-                    </select>
+                    <label className="block text-sm font-semibold text-foreground mb-1">Status</label>
+                    <div className="relative">
+                      <select value={tenantStatus} onChange={(e) => setTenantStatus(e.target.value)} className="w-full px-3 py-2 bg-secondary/30 rounded-md border border-border outline-none transition-all text-sm text-foreground appearance-none pr-10">
+                        <option value="Ativo">Ativo</option>
+                        <option value="Pendente">Pendente</option>
+                        <option value="Desativado">Desativado</option>
+                        <option value="Cancelado">Cancelado</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    </div>
                   </div>
                 )}
               </div>
 
               {!isEditing && (
-                <div className="mt-6 pt-6 border-t border-border space-y-5">
+                <div className="mt-4 pt-4 border-t border-border space-y-4">
                   <h4 className="font-semibold text-foreground">Administrador Inicial</h4>
                   <div>
-                    <label className="block text-sm font-semibold text-foreground mb-1.5">Nome Completo</label>
-                    <input type="text" value={adminName} onChange={(e) => setAdminName(e.target.value)} className="w-full px-4 py-2.5 bg-secondary/30 rounded-lg border border-border focus:border-primary outline-none text-sm text-foreground" />
+                    <label className="block text-sm font-semibold text-foreground mb-1">Nome Completo</label>
+                    <input type="text" value={adminName} onChange={(e) => setAdminName(e.target.value)} className="w-full px-3 py-2 bg-secondary/30 rounded-md border border-border focus:border-primary outline-none text-sm text-foreground" />
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-foreground mb-1.5">E-mail Corporativo</label>
-                    <input type="email" value={adminEmail} onChange={(e) => { setAdminEmail(e.target.value); setTenantError(""); }} className={`w-full px-4 py-2.5 bg-secondary/30 rounded-lg border focus:bg-background focus:ring-1 outline-none text-sm text-foreground ${tenantError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-border focus:border-primary focus:ring-primary'}`} />
-                    {tenantError && <p className="text-xs text-red-500 mt-1">{tenantError}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-foreground mb-1.5">Senha Provisória</label>
-                    <input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} className="w-full px-4 py-2.5 bg-secondary/30 rounded-lg border border-border focus:border-primary outline-none text-sm text-foreground" />
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-foreground mb-1">E-mail Corporativo</label>
+                      <input type="email" value={adminEmail} onChange={(e) => { setAdminEmail(e.target.value); setTenantError(""); }} className={`w-full px-3 py-2 bg-secondary/30 rounded-md border focus:bg-background focus:ring-1 outline-none text-sm text-foreground ${tenantError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-border focus:border-primary focus:ring-primary'}`} />
+                      {tenantError && <p className="text-xs text-red-500 mt-1">{tenantError}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-foreground mb-1">Senha Provisória</label>
+                      <div className="relative">
+                        <input type={showPassword ? "text" : "password"} value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} className="w-full px-3 py-2 bg-secondary/30 rounded-md border border-border focus:border-primary outline-none text-sm text-foreground pr-10" />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground">
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
-            <div className="p-6 border-t border-border bg-secondary/10 flex justify-end gap-3 rounded-b-2xl">
+            <div className="p-5 border-t border-border bg-secondary/10 flex justify-end gap-3 rounded-b-2xl">
               <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
               <Button onClick={handleSave} disabled={createMutation.isPending || updateMutation.isPending}>
                 {isEditing ? 'Atualizar Tenant' : 'Criar Tenant'}
