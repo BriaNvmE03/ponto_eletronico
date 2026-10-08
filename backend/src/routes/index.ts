@@ -3,6 +3,7 @@ import authRoutes from './auth.routes';
 import tenantsRoutes from './tenants.routes';
 import plansRoutes from './plans.routes';
 import usersRoutes from './users.routes';
+import punchRoutes from './punch.routes';
 
 const routes = Router();
 
@@ -11,5 +12,6 @@ routes.use('/auth', authRoutes);
 routes.use('/tenants', tenantsRoutes);
 routes.use('/plans', plansRoutes);
 routes.use('/users', usersRoutes);
+routes.use('/punches', punchRoutes);
 
 export default routes;

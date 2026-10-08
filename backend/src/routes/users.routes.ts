@@ -1,13 +1,15 @@
 import { Router } from 'express';
 import { getUsers, updateUserStatus, updateUser, changePassword, deleteUser, createUser } from '../controllers/users.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
+import { roleMiddleware } from '../middlewares/role.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import { createUserSchema, updateUserSchema, changePasswordSchema, updateUserStatusSchema, userIdParamSchema } from '../schemas/user.schema';
 
 const router = Router();
 
-// Todas as rotas de usuários exigem autenticação
+// Todas as rotas de usuários exigem autenticação e nível de gestão (ADMIN ou SUPERADMIN)
 router.use(authMiddleware);
+router.use(roleMiddleware(['SUPERADMIN', 'ADMIN']));
 
 router.get('/', getUsers);
 router.post('/', validate(createUserSchema), createUser);
