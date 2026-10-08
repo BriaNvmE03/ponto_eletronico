@@ -33,8 +33,12 @@ export function Login() {
       }
     },
     onError: (error: any) => {
-      // Captura o erro customizado da API ou exibe erro genérico
-      setErrorMsg(error.response?.data?.error || "Erro ao conectar com o servidor");
+      // Evita o React Error 31 verificando se a resposta é um objeto
+      const errData = error.response?.data?.error;
+      const message = typeof errData === 'string' 
+        ? errData 
+        : (errData?.message || "Erro ao conectar com o servidor (500). Verifique os logs na Vercel.");
+      setErrorMsg(message);
     }
   });
 
